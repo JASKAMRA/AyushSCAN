@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AyushScan - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== CSS VARIABLES ===== */
+    :root {
+      --primary: #020000;
+      --primary-light: #1a1a1a;
+      --accent: #200404;
+      --text: #000000;
+      --text-light: #666666;
+      --white: #ffffff;
+      --light-gray: #f8f9fa;
+      --border: #e0e0e0;
+      --success: #10b981;
+      --error: #ef4444;
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+      --shadow-light: 0 5px 20px rgba(0, 0, 0, 0.08);
+      --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-dark: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+    }
+
+    /* ===== RESET & BASE STYLES ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      font-family: 'Poppins', sans-serif;
+      background: var(--gradient-dark);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ===== ANIMATED BACKGROUND ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%);
+      animation: backgroundMove 20s ease-in-out infinite;
+      z-index: -1;
+    }
+
+    @keyframes backgroundMove {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(1deg); }
+    }
+
+    /* ===== CONTAINER ===== */
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 3rem 2rem;
+      box-shadow: var(--shadow);
+      position: relative;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--gradient);
+      border-radius: 24px 24px 0 0;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .title {
+      font-size: clamp(1.75rem, 5vw, 2.25rem);
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: var(--text-light);
+      font-weight: 400;
+    }
+
+    /* ===== FORM STYLES ===== */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-group {
+      position: relative;
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      transition: color 0.3s ease;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 1rem 1.25rem;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text);
+      background: var(--white);
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(2, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .form-input:focus + .form-label {
+      color: var(--primary);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-light);
+      opacity: 0.7;
+    }
+
+    /* ===== INPUT ICONS ===== */
+    .input-group {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      color: var(--text-light);
+      transition: color 0.3s ease;
+    }
+
+    .form-input:focus ~ .input-icon {
+      color: var(--primary);
+    }
+
+    /* ===== PASSWORD TOGGLE ===== */
+    .password-toggle {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-light);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0.25rem;
+      transition: color 0.3s ease;
+    }
+
+    .password-toggle:hover {
+      color: var(--primary);
+    }
+
+    /* ===== SUBMIT BUTTON ===== */
+    .btn-submit {
+      width: 100%;
+      padding: 1rem;
+      background: var(--gradient-dark);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      margin-top: 1rem;
+    }
+
+    .btn-submit::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .btn-submit:hover::before {
+      left: 100%;
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    /* ===== LOADING STATE ===== */
+    .btn-submit.loading {
+      pointer-events: none;
+    }
+
+    .btn-submit.loading .btn-text {
+      opacity: 0;
+    }
+
+    .btn-submit.loading .btn-spinner {
+      display: block;
+    }
+
+    .btn-spinner {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top: 2px solid var(--white);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* ===== ALTERNATIVE LINK ===== */
+    .alt-link {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.95rem;
+      color: var(--text-light);
+    }
+
+    .alt-link a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .alt-link a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--primary);
+      transition: width 0.3s ease;
+    }
+
+    .alt-link a:hover::after {
+      width: 100%;
+    }
+
+    .alt-link a:hover {
+      color: var(--primary-light);
+    }
+
+    /* ===== FORGOT PASSWORD ===== */
+    .forgot-password {
+      text-align: right;
+      margin-top: 0.5rem;
+    }
+
+    .forgot-password a {
+      color: var(--text-light);
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .forgot-password a:hover {
+      color: var(--primary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 480px) {
+      .container {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+      }
+
+      .title {
+        font-size: 1.75rem;
+      }
+
+      .form-input {
+        padding: 0.875rem 1rem;
+      }
+    }
+
+    /* ===== ACCESSIBILITY ===== */
+    .form-input:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">Welcome Back</div>
+      <div class="subtitle">Sign in to your AyushScan account</div>
+    </div>
+    
+    <form class="login-form" id="loginForm" action="/login" method="POST">
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <div class="input-group">
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            class="form-input"
+            placeholder="Enter your email"
+            required 
+            autocomplete="email"
+          >
+          <span class="input-icon">📧</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-group">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input"
+            placeholder="Enter your password"
+            required 
+            autocomplete="current-password"
+          >
+          <button type="button" class="password-toggle" id="passwordToggle">
+            <span id="toggleIcon">👁️</span>
+          </button>
+        </div>
+        <div class="forgot-password">
+          <a href="#" id="forgotPassword">Forgot Password?</a>
+        </div>
+      </div>
+
+      <button class="btn-submit" type="submit" id="submitButton">
+        <span class="btn-text">Sign In</span>
+        <div class="btn-spinner"></div>
+      </button>
+    </form>
+
+    <div class="alt-link">
+      Don't have an account? <a href="signup">Create one here</a>
+    </div>
+  </div>
+
+  <script>
+    // ===== DOM ELEMENTS =====
+    const loginForm = document.getElementById('loginForm');
+    const submitButton = document.getElementById('submitButton');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const emailInput = document.getElementById('email');
+    const forgotPassword = document.getElementById('forgotPassword');
+
+    // ===== PASSWORD TOGGLE FUNCTIONALITY =====
+    passwordToggle.addEventListener('click', function() {
+      const type = passwordInput.type === 'password' ? 'text' : 'password';
+      passwordInput.type = type;
+      toggleIcon.textContent = type === 'password' ? '👁️' : '🙈';
+    });
+
+    // ===== FORM VALIDATION =====
+    function validateEmail(email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    }
+
+    function validatePassword(password) {
+      return password.length >= 6;
+    }
+
+    function showError(input, message) {
+      input.style.borderColor = 'var(--error)';
+      input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+      
+      // Remove existing error message
+      const existingError = input.parentNode.querySelector('.error-message');
+      if (existingError) {
+        existingError.remove();
+      }
+      
+      // Add new error message
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.style.cssText = `
+        color: var(--error);
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        animation: fadeIn 0.3s ease;
+      `;
+      errorDiv.textContent = message;
+      input.parentNode.appendChild(errorDiv);
+    }
+
+    function clearError(input) {
+      input.style.borderColor = 'var(--border)';
+      input.style.boxShadow = 'none';
+      
+      const errorMessage = input.parentNode.querySelector('.error-message');
+      if (errorMessage) {
+        errorMessage.remove();
+      }
+    }
+
+    // ===== INPUT VALIDATION ON BLUR =====
+    emailInput.addEventListener('blur', function() {
+      if (this.value && !validateEmail(this.value)) {
+        showError(this, 'Please enter a valid email address');
+      } else {
+        clearError(this);
+      }
+    });
+
+    passwordInput.addEventListener('blur', function() {
+      if (this.value && !validatePassword(this.value)) {
+        showError(this, 'Password must be at least 6 characters');
+      } else {
+        clearError(this);
+      }
+    });
+
+    // ===== FORM SUBMISSION =====
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Clear previous errors
+      clearError(emailInput);
+      clearError(passwordInput);
+      
+      let isValid = true;
+      
+      // Validate email
+      if (!validateEmail(emailInput.value)) {
+        showError(emailInput, 'Please enter a valid email address');
+        isValid = false;
+      }
+      
+      // Validate password
+      if (!validatePassword(passwordInput.value)) {
+        showError(passwordInput, 'Password must be at least 6 characters');
+        isValid = false;
+      }
+      
+      if (isValid) {
+        // Show loading state
+        submitButton.classList.add('loading');
+        
+        // Simulate login process (replace with actual login logic)
+      fetch("/login", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    email: emailInput.value,
+    password: passwordInput.value
+  })
+})
+.then(response => response.json())
+.then(data => {
+  submitButton.classList.remove('loading');
+  if (data.success) {
+    alert("Login successful!");
+    window.location.href = "scanner"; // or any other page
+  } else {
+    alert("Invalid credentials!");
+  }
+})
+.catch(error => {
+  submitButton.classList.remove('loading');
+  alert("An error occurred. Please try again.");
+});
+
+      }
+    });
+
+    // ===== FORGOT PASSWORD =====
+    forgotPassword.addEventListener('click', function(e) {
+      e.preventDefault();
+      alert('Forgot password functionality would be implemented here');
+    });
+
+    // ===== KEYBOARD SHORTCUTS =====
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        loginForm.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    // ===== FOCUS MANAGEMENT =====
+    emailInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        passwordInput.focus();
+      }
+    });
+
+    passwordInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginForm.dispatchEvent(new Event('submit'));
+      }
+    });
+  </script>
+</body>
+</html>
