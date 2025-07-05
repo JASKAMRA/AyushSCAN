@@ -1009,9 +1009,51 @@ dropArea.addEventListener("drop", (e) => {
 });
 
 // Show loading spinner on submit
-scannerForm.addEventListener("submit", () => {
+scannerForm.addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  if (!fileInput.files.length) {
+    alert("Please select a file first.");
+    return;
+  }
+
   scanBtn.disabled = true;
   loadingSpinner.style.display = "block";
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  fetch("/scan", {
+    method: "POST",
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    scanBtn.disabled = false;
+    loadingSpinner.style.display = "none";
+
+    if (data.success) {
+      let msg = data.message;
+
+      if (Object.keys(data.flagged || {}).length > 0) {
+        msg += "\n\nOverbilling Detected:\n";
+        for (const item in data.flagged) {
+          const f = data.flagged[item];
+          msg += `\n- ${item.toUpperCase()}: Billed ₹${f.billed}, Expected ₹${f.expected} → Extra ₹${f.extra}`;
+        }
+      }
+
+      alert(msg);
+    } else {
+      alert("❌ Error: " + data.message);
+    }
+  })
+  .catch(error => {
+    scanBtn.disabled = false;
+    loadingSpinner.style.display = "none";
+    alert("Something went wrong: " + error.message);
+  });
 });
+
 
 </script>
