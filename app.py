@@ -29,50 +29,56 @@ def home():
 @app.route('/signup', methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        username = request.form["username"]
-        email = request.form["email"]
-        password = request.form["password"]
+        try:
+            data = request.get_json()
+            username = data.get("username")
+            email = data.get("email")
+            password = data.get("password")
+        except:
+            return jsonify(success=False, message="Invalid request"), 400
 
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
                             (username, email, password))
-                # commit happens automatically with `with`
-            flash("Signup successful! Please login.", "success")
-            return redirect(url_for("scanner"))
+                conn.commit()
+                user_id = cur.lastrowid
+            session["user_id"] = user_id  # 👈 session set
+            return jsonify(success=True, redirect_url="/dashboard")
         except sqlite3.IntegrityError:
-            flash("Email already registered.", "error")
+            return jsonify(success=False, message="Email already registered.")
         except sqlite3.OperationalError as e:
-            flash(f"Database error: {e}", "error")
+            return jsonify(success=False, message=f"Database error: {e}")
 
     return render_template("signup.html")
 
-@app.route('/login', methods=["GET","POST"])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == "GET":
-        return render_template("login.html")
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+            email = data.get("email")
+            password = data.get("password")
+        except:
+            return jsonify(success=False, message="Invalid request")
 
-    try:
-        data = request.get_json()
-        email = data.get("email")
-        password = data.get("password")
-    except Exception:
-        return jsonify(success=False, message="Invalid request"), 400
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT id, password FROM users WHERE email = ?", (email,))
+                user = cur.fetchone()
 
-    try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM users WHERE email = ? AND password = ?", (email, password))
-            user = cur.fetchone()
-    except sqlite3.OperationalError as e:
-        return jsonify(success=False, message=f"Database error: {e}"), 500
+            if user and user["password"] == password:
+                session["user_id"] = user["id"]  # ✅ Session set
+                return jsonify(success=True, redirect_url="/dashboard")
+            else:
+                return jsonify(success=False, message="Invalid credentials")
+        except Exception as e:
+            return jsonify(success=False, message="Login error")
 
-    if user:
-        session['user_id'] = user['id']
-        return jsonify(success=True)
-    else:
-        return jsonify(success=False, message="Invalid credentials")
+    return render_template("login.html")
+
 
 @app.route('/scanner')
 def scanner():
@@ -86,6 +92,31 @@ def logout():
     session.pop('user_id', None)
     flash("Logged out successfully.", "info")
     return redirect(url_for("home"))
+
+@app.route("/dashboard")
+def dashboard():
+    if "user_id" not in session:
+        return redirect("/login")  # Optional: check if user logged in
+    return render_template("dashboard.html")
+
+@app.route("/scan", methods=["POST"])
+def scan():
+    if 'user_id' not in session:
+        return jsonify(success=False, message="Unauthorized"), 401
+
+    if 'file' not in request.files:
+        return jsonify(success=False, message="No file part"), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify(success=False, message="No selected file"), 400
+
+    # You can save the file or process it here.
+    # For now, just simulate success:
+    return jsonify(success=True, message="Scan successful!")
+
+
 
 if __name__ == '__main__':
     init_db()

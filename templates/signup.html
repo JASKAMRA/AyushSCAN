@@ -534,7 +534,32 @@
 
     if (isValid) {
       submitButton.classList.add('loading');
-      signupForm.submit(); // 🔥 Real form submission to Flask
+      fetch("/signup", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    username: usernameInput.value,
+    email: emailInput.value,
+    password: passwordInput.value
+  })
+})
+.then(response => response.json())
+.then(data => {
+  if (data.success) {
+    window.location.href = data.redirect_url; // 👈 Dashboard pe redirect
+  } else {
+    alert(data.message || "Signup failed. Try again.");
+    submitButton.classList.remove('loading');
+  }
+})
+.catch(error => {
+  console.error("Signup error:", error);
+  alert("Something went wrong. Try again.");
+  submitButton.classList.remove('loading');
+});
+ // 🔥 Real form submission to Flask
     }
   });
 
