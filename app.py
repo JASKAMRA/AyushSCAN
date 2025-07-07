@@ -4,6 +4,10 @@ import pytesseract
 from PIL import Image, UnidentifiedImageError
 import os
 import re
+import csv
+from difflib import SequenceMatcher
+from rapidfuzz import fuzz
+
 
 app = Flask(__name__)
 app.secret_key = "secret_ayushscan_key"
@@ -13,26 +17,56 @@ DATABASE = "users.db"
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+
+UPLOAD_FOLDER = "uploads"
+CSV_FILE = "products.csv"
+
+# Load standard prices from CSV
+def load_standard_prices(csv_path):
+    prices = {}
+    with open(csv_path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            name = row["Generic Name"].strip().lower()
+            try:
+                mrp = float(row["MRP"])
+                prices[name] = mrp
+            except ValueError:
+                continue
+    return prices
+def preprocess(text):
+    text = text.lower()
+    remove_words = ["ip", "bp", "usp", "tablet", "tab", "capsule", "cap", "syrup", "injection"]
+    for word in remove_words:
+        text = text.replace(word, "")
+    return text.strip()
+
+def extract_mg(text):
+    match = re.search(r"(\d+)\s*mg", text.lower())
+    return int(match.group(1)) if match else None
+
+standard_prices = load_standard_prices(CSV_FILE)
+
 # =================== Standard Price Dataset ===================
-standard_prices = {
-    "paracetamol": 5.0,
-    "amoxicillin": 8.0,
-    "ibuprofen": 6.0,
-    "blood test": 150.0,
-    "xray": 300.0,
-    "mri brain": 2500.0,
-    "ct scan": 2000.0,
-    "ultrasound": 500.0,
-    "ecg": 250.0,
-    "iv drip": 150.0,
-    "consultation": 500.0,
-    "oxygen cylinder": 800.0,
-    "covid test": 1000.0,
-    "cbc": 200.0,
-    "urine test": 100.0,
-    "liver function test": 500.0,
-    "kidney function test": 500.0
-}
+# standard_prices = {
+#     "paracetamol": 5.0,
+#     "amoxicillin": 8.0,
+#     "ibuprofen": 6.0,
+#     "blood test": 150.0,
+#     "xray": 300.0,
+#     "mri brain": 2500.0,
+#     "ct scan": 2000.0,
+#     "ultrasound": 500.0,
+#     "ecg": 250.0,
+#     "iv drip": 150.0,
+#     "consultation": 500.0,
+#     "oxygen cylinder": 800.0,
+#     "covid test": 1000.0,
+#     "cbc": 200.0,
+#     "urine test": 100.0,
+#     "liver function test": 500.0,
+#     "kidney function test": 500.0
+# }
 
 # =================== Database Init ===================
 def get_db_connection():
@@ -120,14 +154,11 @@ def dashboard():
         return redirect("/login")
     return render_template("dashboard.html")
 
-@app.route('/scanner')
-def scanner():
-    if 'user_id' not in session:
-        flash("Please login first.", "error")
-        return redirect(url_for("home"))
-    return render_template("scanner.html")
+
 
 @app.route("/scan", methods=["POST"])
+
+
 def scan():
     if "user_id" not in session:
         return jsonify(success=False, message="Unauthorized access"), 401
@@ -139,48 +170,82 @@ def scan():
     if file.filename == '':
         return jsonify(success=False, message="No file selected"), 400
 
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     file_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(file_path)
 
     try:
         image = Image.open(file_path)
         text = pytesseract.image_to_string(image)
-        print("OCR TEXT:\n", text)
+        print("\n========== 🧾 OCR EXTRACTED TEXT ==========")
+        print(text)
+        print("==========================================\n")
 
         lines = text.lower().splitlines()
         overbilled_items = {}
 
+        print("🔍 ANALYSIS:")
         for line in lines:
-            for item in standard_prices:
-                if item in line:
-                    amount_match = re.findall(r"\d+\.\d{1,2}|\d+", line)
-                    if amount_match:
-                        try:
-                            billed_amount = float(amount_match[-1])
-                            expected_price = standard_prices[item]
-                            if billed_amount > expected_price:
-                                overbilled_items[item] = {
-                                    "expected": expected_price,
-                                    "billed": billed_amount,
-                                    "extra": round(billed_amount - expected_price, 2)
-                                }
-                        except:
-                            continue
+            clean_line = preprocess(line.strip())
+            if not clean_line:
+                continue
 
-        if overbilled_items:
-            return jsonify(
-                success=True,
-                message="⚠️ Overbilling detected in scanned bill.",
-                flagged=overbilled_items,
-                text=text
-            )
-        else:
-            return jsonify(
-                success=True,
-                message="✅ No overbilling detected.",
-                flagged={},
-                text=text
-            )
+            print(f"\n📄 Line: {clean_line}")
+            matched = False
+            best_match = None
+            best_score = 0.0
+            ocr_mg = extract_mg(clean_line)
+
+            # Find best fuzzy match
+            for product in standard_prices:
+                processed_product = preprocess(product)
+                product_mg = extract_mg(processed_product)
+
+    # 💊 MG check
+                if ocr_mg is not None and product_mg is not None and ocr_mg != product_mg:
+                    continue  # ❌ MG doesn't match — skip
+                score = fuzz.token_set_ratio(clean_line, processed_product) / 100.0
+
+                if score > best_score and score > 0.6:  # 0.67 thresholdd
+                    best_score = score
+                    best_match = product
+
+            if best_match:
+                matched = True
+                expected_price = standard_prices[best_match]
+                amount_match = re.findall(r"\d+\.\d{1,2}|\d+", line)
+
+                if amount_match:
+                    try:
+                        billed_amount = float(amount_match[-1])
+                        print(f"→ 🏷 Matched Item: {best_match.upper()} (Score: {best_score:.2f})")
+                        print(f"   🏷 MRP from CSV: ₹{expected_price:.2f}")
+                        print(f"   💵 Billed Amount: ₹{billed_amount:.2f}")
+
+                        if billed_amount > expected_price:
+                            overbilled_items[best_match] = {
+                                "expected": expected_price,
+                                "billed": billed_amount,
+                                "extra": round(billed_amount - expected_price, 2)
+                            }
+                            print(f"   🚨 Overbilled by ₹{billed_amount - expected_price:.2f}")
+                        else:
+                            print(f"   ✅ Billed correctly or below MRP.")
+                    except Exception as e:
+                        print(f"   ⚠️ Error parsing amount: {e}")
+                else:
+                    print("   ⚠️ No amount found in line.")
+            else:
+                print("❌ No matching product found in this line.")
+
+        print("\n✅ Scan Complete.\n")
+
+        return jsonify(
+            success=True,
+            message="⚠️ Overbilling detected in scanned bill." if overbilled_items else "✅ No overbilling detected.",
+            flagged=overbilled_items,
+            text=text
+        )
 
     except UnidentifiedImageError:
         return jsonify(success=False, message="Invalid or corrupted image file."), 400
@@ -189,6 +254,7 @@ def scan():
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
+
 
 # =================== Main ===================
 if __name__ == "__main__":
