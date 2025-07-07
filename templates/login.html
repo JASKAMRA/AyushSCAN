@@ -1,50 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AyushScan - Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles/login.css') }}">
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="title">Welcome Back</div>
-      <div class="subtitle">Sign in to your AyushScan account</div>
-    </div>
-    
-    <form class="login-form" id="loginForm" action="/login" method="POST">
-      <div class="form-group">
-        <label class="form-label" for="email">Email Address</label>
-        <div class="input-group">
-          <input type="email" id="email" name="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
-          <span class="input-icon">📧</span>
-        </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AyushScan - Login</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles/login.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="title">Welcome Back</div>
+        <div class="subtitle">Sign in to your AyushScan account</div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="password">Password</label>
-        <div class="input-group">
-          <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
-          <button type="button" class="password-toggle" id="passwordToggle"><span id="toggleIcon">👁️</span></button>
+      <form class="login-form" id="loginForm" action="/login" method="POST">
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <div class="input-group">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input"
+              placeholder="Enter your email"
+              required
+              autocomplete="email"
+            />
+            <span class="input-icon">📧</span>
+          </div>
         </div>
-        <div class="forgot-password">
-          <a href="#" id="forgotPassword">Forgot Password?</a>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="Enter your password"
+              required
+              autocomplete="current-password"
+            />
+            <button type="button" class="password-toggle" id="passwordToggle">
+              <span id="toggleIcon">👁️</span>
+            </button>
+          </div>
+          <div class="forgot-password">
+            <a href="#" id="forgotPassword">Forgot Password?</a>
+          </div>
         </div>
+
+        <button class="btn-submit" type="submit" id="submitButton">
+          <span class="btn-text">LOGIN</span>
+          <div class="btn-spinner"></div>
+        </button>
+      </form>
+
+      <div class="alt-link">
+        Don't have an account? <a href="/signup">Create one here</a>
       </div>
-
-      <button class="btn-submit" type="submit" id="submitButton">
-        <span class="btn-text">Sign In</span>
-        <div class="btn-spinner"></div>
-      </button>
-    </form>
-
-    <div class="alt-link">
-      Don't have an account? <a href="/signup">Create one here</a>
     </div>
-  </div>
 
-  <script src="{{ url_for('static', filename='scripts/login.js') }}"></script>
-</body>
+    <script src="{{ url_for('static', filename='scripts/login.js') }}"></script>
+  </body>
 </html>

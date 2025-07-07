@@ -155,6 +155,19 @@ def signup():
             return jsonify(success=False, message=f"Database error: {str(e)}")
 
     return render_template("signup.html")
+@app.route('/')
+def index():
+    return render_template('index.html')
+@app.route('/contact', methods=['POST'])
+def contact():
+    name = request.form['name']
+    email = request.form['email']
+    message = request.form['message']
+    
+    # for now: just print to console or later store in db
+    print(f"Message from {name} ({email}): {message}")
+    flash("Your message has been sent!", "success")
+    return redirect(url_for('about'))  # back to About page
 @app.route('/about')
 def about():
     return render_template('about.html')
