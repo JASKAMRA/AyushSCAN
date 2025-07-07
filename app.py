@@ -7,6 +7,7 @@ import re
 import csv
 from difflib import SequenceMatcher
 from rapidfuzz import fuzz
+import random
 
 
 app = Flask(__name__)
@@ -115,15 +116,43 @@ def get_db_connection():
 
 def init_db():
     with get_db_connection() as conn:
+        # Users table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                username TEXT UNIQUE,
                 email TEXT UNIQUE,
                 password TEXT
             )
         """)
+
+        # Scans table (for saving scan history)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                filename TEXT,
+                text TEXT,
+                flagged TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+
+        # OTP tokens table (for email verification / reset password)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS otp_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT,
+                otp TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
+
 
 # =================== Auth Routes ===================
 @app.route('/')
@@ -135,16 +164,19 @@ def signup():
     if request.method == "POST":
         try:
             data = request.get_json()
+            first_name = data.get("firstName")
+            last_name = data.get("lastName")
             username = data.get("username")
             email = data.get("email")
             password = data.get("password")
+ 
         except:
             return jsonify(success=False, message="Invalid request format"), 400
 
         try:
             with get_db_connection() as conn:
-                conn.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-                             (username, email, password))
+                conn.execute("INSERT INTO users (first_name, last_name, username, email, password) VALUES (?, ?, ?, ?, ?)",
+                             (first_name,last_name,username, email, password))
                 conn.commit()
                 user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             session["user_id"] = user_id
@@ -195,25 +227,130 @@ def login():
             return jsonify(success=False, message="Login error: " + str(e))
 
     return render_template("login.html")
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    username = request.form.get('username')
+
+    try:
+        with get_db_connection() as conn:
+            conn.execute("""
+                UPDATE users
+                SET first_name = ?, last_name = ?, username = ?
+                WHERE id = ?
+            """, (first_name, last_name, username, user_id))
+            conn.commit()
+        return redirect(url_for('dashboard', message="Profile updated successfully"))
+
+
+    except sqlite3.IntegrityError:
+        flash("Username already taken.", "danger")
+
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/change_password', methods=['POST'])
+def change_password():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    current = request.form['current_password']
+    confirm = request.form['confirm_current_password']
+    new = request.form['new_password']
+    confirm_new = request.form['confirm_new_password']
+
+    if current != confirm:
+        return redirect(url_for('dashboard', message="Current passwords don’t match"))
+
+    if new != confirm_new:
+        return redirect(url_for('dashboard', message="New passwords don’t match"))
+
+        
+
+    with get_db_connection() as conn:
+        user = conn.execute("SELECT password FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        if user and user["password"] != current:
+            return redirect(url_for('dashboard', message="Incorrect current password"))
+
+            
+
+        conn.execute("UPDATE users SET password = ? WHERE id = ?", (new, session["user_id"]))
+        conn.commit()
+
+    return redirect(url_for('dashboard', message="Password changed successfully"))
+
+@app.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    email = request.form['email']
+
+    with get_db_connection() as conn:
+        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        if not user:
+            flash("No account with that email.", "danger")
+            return redirect(url_for('dashboard'))
+
+        otp = str(random.randint(100000, 999999))
+        conn.execute("INSERT INTO otp_tokens (email, otp) VALUES (?, ?)", (email, otp))
+        conn.commit()
+
+    # For now, log OTP in terminal (later send email)
+    print(f"🔐 OTP for {email}: {otp}")
+
+    return redirect(url_for('dashboard', message="OTP sent to your email"))
+
+
+@app.route('/delete_account', methods=['POST'])
+def delete_account():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    password = request.form['delete_password']
+
+    with get_db_connection() as conn:
+        user = conn.execute("SELECT password FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        if not user or user['password'] != password:
+            return redirect(url_for('dashboard', message="Incorrect password"))
+
+        conn.execute("DELETE FROM users WHERE id = ?", (session["user_id"],))
+        conn.commit()
+
+    session.clear()
+    return redirect(url_for('login', message="Account deleted successfully."))
+
+
 
 @app.route('/logout')
 def logout():
     session.pop("user_id", None)
-    flash("Logged out successfully.", "info")
-    return redirect(url_for("home"))
+    return redirect(url_for("index", message="Logged out successfully"))
+
 
 # =================== Scanner & Dashboard ===================
 @app.route("/dashboard")
 def dashboard():
     if "user_id" not in session:
         return redirect("/login")
-    return render_template("dashboard.html")
+
+    user_id = session["user_id"]
+    with get_db_connection() as conn:
+        user = conn.execute("SELECT username, email, first_name, last_name FROM users WHERE id = ?", (user_id,)).fetchone()
+
+        scans = conn.execute("SELECT filename, flagged, timestamp FROM scans WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)).fetchall()
+
+    return render_template("dashboard.html", user=user, scans=scans)
 
 
+
+
+from datetime import datetime
+import json
 
 @app.route("/scan", methods=["POST"])
-
-
 def scan():
     if "user_id" not in session:
         return jsonify(success=False, message="Unauthorized access"), 401
@@ -226,7 +363,11 @@ def scan():
         return jsonify(success=False, message="No file selected"), 400
 
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+
+    # Make filename unique to avoid overwrites
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(file_path)
 
     try:
@@ -255,7 +396,6 @@ def scan():
             best_score = 0.0
             ocr_mg = extract_mg(clean_line)
 
-            # Fuzzy match with MG check
             for product in standard_prices:
                 processed_product = preprocess(product)
                 product_mg = extract_mg(processed_product)
@@ -271,8 +411,6 @@ def scan():
             if best_match:
                 matched = True
                 expected_price = standard_prices[best_match]
-
-                # First try structured column parsing
                 billed_amount = None
                 price_type = "unknown"
                 parts = re.split(r"\s{2,}", line.strip())
@@ -283,7 +421,6 @@ def scan():
                         price_type = "unit_price (from column)"
                         print("📊 Price extracted from column format.")
                     else:
-                        # Fallback method
                         billed_amount, price_type = extract_price_info(line)
                 except Exception as e:
                     print(f"⚠️ Error extracting price: {e}")
@@ -311,6 +448,14 @@ def scan():
 
         print("\n✅ Scan Complete.\n")
 
+        # ✅ Save to DB
+        with get_db_connection() as conn:
+            conn.execute("""
+                INSERT INTO scans (user_id, filename, text, flagged)
+                VALUES (?, ?, ?, ?)
+            """, (session["user_id"], filename, text, json.dumps(overbilled_items)))
+            conn.commit()
+
         return jsonify(
             success=True,
             message="⚠️ Overbilling detected in scanned bill." if overbilled_items else "✅ No overbilling detected.",
@@ -325,8 +470,6 @@ def scan():
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
-
-
 
 # =================== Main ===================
 if __name__ == "__main__":

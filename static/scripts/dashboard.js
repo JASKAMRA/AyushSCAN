@@ -8,6 +8,34 @@ const navLinks = document.querySelectorAll(".nav-link");
 const contentSections = document.querySelectorAll(".content-section");
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
+function toggleDropdown() {
+  const menu = document.getElementById("userDropdown");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+document.addEventListener("click", function (e) {
+  if (!e.target.closest(".user-profile") && !e.target.closest(".dropdown")) {
+    document.getElementById("userDropdown").style.display = "none";
+  }
+});
+function openModal(id) {
+  document.getElementById(id).style.display = "block";
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+window.onclick = function (event) {
+  const modals = document.querySelectorAll(".modal");
+  modals.forEach((modal) => {
+    if (event.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+};
+function showFeedback(title, message) {
+  document.getElementById("feedbackTitle").innerText = title;
+  document.getElementById("feedbackMessage").innerText = message;
+  openModal("feedbackModal");
+}
 
 // ===== NAVIGATION FUNCTIONS =====
 function showSection(sectionId) {
@@ -196,3 +224,41 @@ scannerForm.addEventListener("submit", function (e) {
       alert("Something went wrong: " + error.message);
     });
 });
+const params = new URLSearchParams(window.location.search);
+const msg = params.get("message");
+if (msg) {
+  showFeedback("Success", msg);
+  history.replaceState({}, document.title, window.location.pathname);
+}
+function openModal(id) {
+  document.getElementById(id).style.display = "block";
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+// Close modal on outside click
+window.onclick = function (event) {
+  const modals = document.querySelectorAll(".modal");
+  modals.forEach((modal) => {
+    if (event.target === modal) modal.style.display = "none";
+  });
+};
+
+function enableEditing() {
+  const form = document.getElementById("updateProfileForm");
+  const inputs = form.querySelectorAll(".form-input");
+  inputs.forEach((input) => {
+    if (input.name !== "email") {
+      input.removeAttribute("readonly");
+    }
+  });
+
+  // Show Save, Hide Edit
+  document.querySelector(".btn-profile-update").classList.add("hidden");
+  document.querySelector(".btn-profile-save").classList.remove("hidden");
+
+  // Scroll to top of form
+  form.scrollIntoView({ behavior: "smooth" });
+}

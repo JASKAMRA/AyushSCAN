@@ -79,8 +79,9 @@ body::before {
 
 /* ===== CONTAINER ===== */
 .container {
+  margin-top: auto;
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -332,6 +333,16 @@ body::before {
   color: #2f3e46;
 }
 
+.form-group.dual {
+  display: flex;
+  gap: 1rem;
+  /* flex-wrap: wrap; */
+}
+
+.form-group.dual .half {
+  flex: 1 1 48%;
+}
+
 /* ===== ERROR MESSAGE STYLES ===== */
 .error-message {
   color: var(--error);
@@ -370,5 +381,14 @@ body::before {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+@media (max-width: 480px) {
+  .form-group.dual {
+    flex-direction: column;
+  }
+
+  .form-group.dual .half {
+    width: 100%;
   }
 }

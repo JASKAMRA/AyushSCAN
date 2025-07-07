@@ -1,68 +1,143 @@
 <!-- File: templates/signup.html -->
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AyushScan - Signup</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles/signup.css') }}">
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="title">Join AyushScan</div>
-      <div class="subtitle">Create your account to get started</div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AyushScan - Signup</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles/signup.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="title">Join AyushScan</div>
+        <div class="subtitle">Create your account to get started</div>
+      </div>
+
+      <form class="signup-form" id="signupForm" action="/signup" method="POST">
+        <div class="form-group dual">
+          <div class="half">
+            <label class="form-label" for="firstName">First Name</label>
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              class="form-input"
+              placeholder="First Name"
+              required
+            />
+          </div>
+          <div class="half">
+            <label class="form-label" for="lastName">Last Name</label>
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              class="form-input"
+              placeholder="Last Name"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <div class="input-group">
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="form-input"
+              placeholder="Choose a username"
+              required
+              autocomplete="username"
+            />
+            <span class="input-icon">👤</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <div class="input-group">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input"
+              placeholder="Enter your email"
+              required
+              autocomplete="email"
+            />
+            <span class="input-icon">📧</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Create Password</label>
+          <div class="input-group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="Enter your password"
+              required
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              id="passwordToggle"
+              aria-label="Toggle password visibility"
+            >
+              <span id="toggleIcon">👁️</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirmPassword"
+            >Confirm Password</label
+          >
+          <div class="input-group">
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              class="form-input"
+              placeholder="Confirm your password"
+              required
+              autocomplete="new-password"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              id="confirmPasswordToggle"
+              aria-label="Toggle confirm password visibility"
+            >
+              <span id="confirmToggleIcon">👁️</span>
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-submit" type="submit" id="submitButton">
+          <span class="btn-text">Sign Up</span>
+          <div class="btn-spinner"></div>
+        </button>
+      </form>
+
+      <div class="alt-link">
+        Already have an account? <a href="/login">Login here</a>
+      </div>
     </div>
 
-    <form class="signup-form" id="signupForm" action="/signup" method="POST">
-      <div class="form-group">
-        <label class="form-label" for="username">Username</label>
-        <div class="input-group">
-          <input type="text" id="username" name="username" class="form-input" placeholder="Choose a username" required autocomplete="username">
-          <span class="input-icon">👤</span>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="email">Email Address</label>
-        <div class="input-group">
-          <input type="email" id="email" name="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
-          <span class="input-icon">📧</span>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="password">Create Password</label>
-        <div class="input-group">
-          <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required autocomplete="new-password">
-          <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
-            <span id="toggleIcon">👁️</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="confirmPassword">Confirm Password</label>
-        <div class="input-group">
-          <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" placeholder="Confirm your password" required autocomplete="new-password">
-          <button type="button" class="password-toggle" id="confirmPasswordToggle" aria-label="Toggle confirm password visibility">
-            <span id="confirmToggleIcon">👁️</span>
-          </button>
-        </div>
-      </div>
-
-      <button class="btn-submit" type="submit" id="submitButton">
-        <span class="btn-text">Sign Up</span>
-        <div class="btn-spinner"></div>
-      </button>
-    </form>
-
-    <div class="alt-link">
-      Already have an account? <a href="/login">Login here</a>
-    </div>
-  </div>
-
-  <script src="{{ url_for('static', filename='scripts/signup.js') }}"></script>
-</body>
+    <script src="{{ url_for('static', filename='scripts/signup.js') }}"></script>
+  </body>
 </html>

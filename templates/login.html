@@ -70,5 +70,10 @@
     </div>
 
     <script src="{{ url_for('static', filename='scripts/login.js') }}"></script>
+    {% if request.args.get('message') %}
+    <script>
+      alert("{{ request.args.get('message') }}");
+    </script>
+    {% endif %}
   </body>
 </html>

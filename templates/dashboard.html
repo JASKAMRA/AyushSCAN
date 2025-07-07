@@ -1,268 +1,637 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AyushScan - Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/dashboard.css">
-</head>
-<body>
-  <div class="dashboard">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">AyushScan</div>
-        <div class="sidebar-subtitle">Medical Bill Scanner</div>
-      </div>
-      <nav>
-        <ul class="sidebar-nav">
-          <li class="nav-item">
-            <a class="nav-link active" data-section="dashboard">
-              <span class="nav-icon">🏠</span>
-              <span class="nav-text">Dashboard</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-section="scanner">
-              <span class="nav-icon">📱</span>
-              <span class="nav-text">Scanner</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-section="profile">
-              <span class="nav-icon">👤</span>
-              <span class="nav-text">Profile</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-section="chatbot">
-              <span class="nav-icon">🤖</span>
-              <span class="nav-text">AI Assistant</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-section="history">
-              <span class="nav-icon">📋</span>
-              <span class="nav-text">Scan History</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" data-section="settings">
-              <span class="nav-icon">⚙️</span>
-              <span class="nav-text">Settings</span>
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </aside>
-
-    <!-- Sidebar Overlay for Mobile -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- Main Content -->
-    <main class="main-content" id="mainContent">
-      <!-- Header -->
-      <header class="header">
-        <div class="header-left">
-          <button class="menu-toggle" id="menuToggle">☰</button>
-          <h1 class="page-title" id="pageTitle">Dashboard</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AyushScan - Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles/dashboard.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-logo">AyushScan</div>
+          <div class="sidebar-subtitle">Tailored for Bharat</div>
         </div>
-        <div class="header-right">
-          <div class="user-profile" onclick="showSection('profile')">
-            <div class="user-avatar">A</div>
-            <div class="user-info">
-              <div class="user-name">Ayush Kumar</div>
-              <div class="user-role">Premium User</div>
-            </div>
+        <nav>
+          <ul class="sidebar-nav">
+            <li class="nav-item">
+              <a class="nav-link active" data-section="dashboard">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-text">Dashboard</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-section="scanner">
+                <span class="nav-icon">📱</span>
+                <span class="nav-text">Scanner</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-section="profile">
+                <span class="nav-icon">👤</span>
+                <span class="nav-text">Profile</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-section="chatbot">
+                <span class="nav-icon">🤖</span>
+                <span class="nav-text">AI Assistant</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-section="history">
+                <span class="nav-icon">📋</span>
+                <span class="nav-text">Scan History</span>
+              </a>
+            </li>
+            {#
+            <li class="nav-item">
+              <a class="nav-link" data-section="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">Settings</span>
+              </a>
+            </li>
+            #}
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- Sidebar Overlay for Mobile -->
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <!-- Main Content -->
+      <main class="main-content" id="mainContent">
+        <!-- Header -->
+        <header class="header">
+          <div class="header-left">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <h1 class="page-title" id="pageTitle">Dashboard</h1>
           </div>
-        </div>
-      </header>
-
-      <!-- Dashboard Section -->
-      <section class="content-section active" id="dashboard">
-        <div class="dashboard-grid">
-          <div class="dashboard-card" onclick="showSection('scanner')">
-            <div class="card-header">
-              <div class="card-icon">📱</div>
-              <div class="card-title">Scanner</div>
-            </div>
-            <div class="card-description">
-              Upload and scan your medical bills with AI-powered OCR technology
-            </div>
-            <div class="card-stats">
-              <div class="stat-label">Total Scans</div>
-              <div class="stat-value">24</div>
-            </div>
-          </div>
-
-          <div class="dashboard-card" onclick="showSection('chatbot')">
-            <div class="card-header">
-              <div class="card-icon">🤖</div>
-              <div class="card-title">AI Assistant</div>
-            </div>
-            <div class="card-description">
-              Get instant help and answers about your medical bills and healthcare
-            </div>
-            <div class="card-stats">
-              <div class="stat-label">Conversations</div>
-              <div class="stat-value">12</div>
-            </div>
-          </div>
-
-          <div class="dashboard-card" onclick="showSection('history')">
-            <div class="card-header">
-              <div class="card-icon">📋</div>
-              <div class="card-title">Scan History</div>
-            </div>
-            <div class="card-description">
-              View and manage all your previously scanned medical documents
-            </div>
-            <div class="card-stats">
-              <div class="stat-label">This Month</div>
-              <div class="stat-value">8</div>
-            </div>
-          </div>
-
-          <div class="dashboard-card" onclick="showSection('profile')">
-            <div class="card-header">
-              <div class="card-icon">👤</div>
-              <div class="card-title">Profile</div>
-            </div>
-            <div class="card-description">
-              Manage your account settings and personal information
-            </div>
-            <div class="card-stats">
-              <div class="stat-label">Account Status</div>
-              <div class="stat-value">Active</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Scanner Section -->
-      <section class="content-section" id="scanner">
-  <div class="scanner-container">
-    <h2 style="text-align: center; margin-bottom: 2rem; color: var(--text);">Medical Bill Scanner</h2>
-
-    <form id="scannerForm" action="/scan" method="POST" enctype="multipart/form-data">
-      <label for="fileInput" id="dropArea" class="upload-area">
-        <div id="uploadIcon" class="upload-icon">📄</div>
-        <div class="upload-text">Drop your medical bill here</div>
-        <div class="upload-subtext">or click to browse files (JPG, PNG, PDF)</div>
-        <input type="file" id="fileInput" name="file" style="display: none;" accept="image/*,.pdf">
-      </label>
-
-      <div id="filePreview" style="display: none; margin-top: 1rem; text-align: center;">
-        <p style="color: var(--text-light);">Selected File:</p>
-        <p id="fileName" style="font-weight: 600;"></p>
-      </div>
-
-      <div style="text-align: center; margin-top: 2rem;">
-        <button type="submit" id="scanBtn" style="padding: 1rem 2rem; background: var(--info); color: var(--white); border: none; border-radius: 8px; font-size: 1rem; cursor: pointer;">
-          Start Scan
-        </button>
-      </div>
-
-      <div id="loadingSpinner" style="display: none; text-align: center; margin-top: 2rem;">
-        <div class="upload-icon" style="font-size: 2rem;">⏳</div>
-        <p>Scanning in progress...</p>
-      </div>
-    </form>
-  </div>
-</section>
-
-
-      <!-- Profile Section -->
-      <section class="content-section" id="profile">
-        <div class="profile-container">
-          <div class="profile-header">
-            <div class="profile-avatar">A</div>
-            <div class="profile-info">
-              <h2>Ayush Kumar</h2>
-              <p>ayush.kumar@example.com</p>
-              <p>Premium Member since Jan 2024</p>
-            </div>
-          </div>
-          <form class="profile-form">
-            <div class="form-group">
-              <label class="form-label">First Name</label>
-              <input type="text" class="form-input" value="Ayush" readonly>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Last Name</label>
-              <input type="text" class="form-input" value="Kumar" readonly>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-input" value="ayush.kumar@example.com" readonly>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Phone</label>
-              <input type="tel" class="form-input" value="+91 9876543210" readonly>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" class="form-input" value="1995-06-15" readonly>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Location</label>
-              <input type="text" class="form-input" value="New Delhi, India" readonly>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <!-- Chatbot Section -->
-      <section class="content-section" id="chatbot">
-        <div class="chatbot-container">
-          <div class="chatbot-header">
-            <span class="nav-icon">🤖</span>
-            <h3>AI Medical Assistant</h3>
-          </div>
-          <div class="chatbot-messages" id="chatMessages">
-            <div class="message bot">
-              <div class="message-avatar">AI</div>
-              <div class="message-content">
-                Hello! I'm your AI medical assistant. I can help you understand your medical bills, explain medical terms, and answer healthcare-related questions. How can I assist you today?
+          <div class="header-right">
+            <div class="user-profile" onclick="showSection('profile')">
+              <div class="user-avatar">{{ user.first_name[0]|upper }}</div>
+              <div class="user-info">
+                <div class="user-name">
+                  {{ user['first_name'] }} {{ user['last_name'] }}
+                </div>
               </div>
             </div>
           </div>
-          <div class="chatbot-input">
-            <div class="input-group">
-              <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything about your medical bills...">
-              <button class="send-button" onclick="sendMessage()">Send</button>
+        </header>
+
+        <!-- Dashboard Section -->
+        <section class="content-section active" id="dashboard">
+          <div class="dashboard-grid">
+            <div class="dashboard-card" onclick="showSection('scanner')">
+              <div class="card-header">
+                <div class="card-icon">📱</div>
+                <div class="card-title">Scanner</div>
+              </div>
+              <div class="card-description">
+                Upload and scan your medical bills with AI-powered OCR
+                technology
+              </div>
+              <div class="card-stats">
+                <div class="stat-label">Total Scans</div>
+                <div class="stat-value">{{ scans|length }}</div>
+              </div>
+            </div>
+
+            <div class="dashboard-card" onclick="showSection('chatbot')">
+              <div class="card-header">
+                <div class="card-icon">🤖</div>
+                <div class="card-title">AI Assistant</div>
+              </div>
+              <div class="card-description">
+                Get instant help and answers about your medical bills and
+                healthcare
+              </div>
+              <div class="card-stats">
+                <div class="stat-label">Hey,I am Lia happy to help😄</div>
+                {#
+                <div class="stat-value">12</div>
+                #}
+              </div>
+            </div>
+
+            <div class="dashboard-card" onclick="showSection('history')">
+              <div class="card-header">
+                <div class="card-icon">📋</div>
+                <div class="card-title">Scan History</div>
+              </div>
+              <div class="card-description">
+                View and manage all your previously scanned medical documents
+              </div>
+              <div class="card-stats">
+                <div class="stat-label">Review your History</div>
+                {#
+                <div class="stat-value">8</div>
+                #}
+              </div>
+            </div>
+
+            <div class="dashboard-card" onclick="showSection('profile')">
+              <div class="card-header">
+                <div class="card-icon">👤</div>
+                <div class="card-title">Profile</div>
+              </div>
+              <div class="card-description">
+                Manage your account settings and personal information
+              </div>
+              <div class="card-stats">
+                <div class="stat-label">Account Status</div>
+                <div class="stat-value">Active</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Scanner Section -->
+        <section class="content-section" id="scanner">
+          <div class="scanner-container">
+            <h2
+              style="
+                text-align: center;
+                margin-bottom: 2rem;
+                color: var(--text);
+              "
+            >
+              Medical Bill Scanner
+            </h2>
+
+            <form
+              id="scannerForm"
+              action="/scan"
+              method="POST"
+              enctype="multipart/form-data"
+            >
+              <label for="fileInput" id="dropArea" class="upload-area">
+                <div id="uploadIcon" class="upload-icon">📄</div>
+                <div class="upload-text">Drop your medical bill here</div>
+                <div class="upload-subtext">
+                  or click to browse files (JPG, PNG, PDF)
+                </div>
+                <input
+                  type="file"
+                  id="fileInput"
+                  name="file"
+                  style="display: none"
+                  accept="image/*,.pdf"
+                />
+              </label>
+
+              <div
+                id="filePreview"
+                style="display: none; margin-top: 1rem; text-align: center"
+              >
+                <p style="color: var(--text-light)">Selected File:</p>
+                <p id="fileName" style="font-weight: 600"></p>
+              </div>
+
+              <div style="text-align: center; margin-top: 2rem">
+                <button
+                  type="submit"
+                  id="scanBtn"
+                  style="
+                    padding: 1rem 2rem;
+                    background: var(--info);
+                    color: var(--white);
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 1rem;
+                    cursor: pointer;
+                  "
+                >
+                  Start Scan
+                </button>
+              </div>
+
+              <div
+                id="loadingSpinner"
+                style="display: none; text-align: center; margin-top: 2rem"
+              >
+                <div class="upload-icon" style="font-size: 2rem">⏳</div>
+                <p>Scanning in progress...</p>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Profile Display Section -->
+        <!-- Profile Section -->
+        <section class="content-section" id="profile">
+          <div class="profile-container">
+            <h2 class="profile-heading">Manage Your Account</h2>
+
+            <div class="profile-header">
+              <div class="profile-avatar">{{ user.first_name[0]|upper }}</div>
+
+              <div class="profile-info-container">
+                <div class="profile-info">
+                  <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+                  <p>{{ user.email }}</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-profile-update"
+                  onclick="enableEditing()"
+                >
+                  Edit Profile
+                </button>
+              </div>
+            </div>
+
+            <form
+              class="profile-form"
+              id="updateProfileForm"
+              action="/update_profile"
+              method="POST"
+            >
+              <div class="form-group">
+                <label class="form-label">First Name</label>
+                <input
+                  type="text"
+                  name="first_name"
+                  class="form-input"
+                  value="{{ user.first_name }}"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Last Name</label>
+                <input
+                  type="text"
+                  name="last_name"
+                  class="form-input"
+                  value="{{ user.last_name }}"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input
+                  type="text"
+                  name="username"
+                  class="form-input"
+                  value="{{ user.username }}"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  class="form-input"
+                  value="{{ user.email }}"
+                  readonly
+                />
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-profile-save hidden">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+
+            <div class="profile-actions-vertical">
+              <button
+                class="btn-secondary"
+                onclick="openModal('changePasswordModal')"
+              >
+                Change Password
+              </button>
+              <button
+                class="btn-secondary"
+                onclick="openModal('forgotPasswordModal')"
+              >
+                Forgot Password
+              </button>
+              <button
+                class="btn-secondary danger"
+                onclick="openModal('deleteAccountModal')"
+              >
+                Delete Account
+              </button>
+              <button
+                class="btn-secondary logout"
+                onclick="openModal('logoutModal')"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          <!-- Change Password Modal -->
+          <div id="changePasswordModal" class="modal">
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('changePasswordModal')"
+                >&times;</span
+              >
+              <h3>Change Password</h3>
+              <form
+                id="changePasswordForm"
+                action="/change_password"
+                method="POST"
+              >
+                <input
+                  type="password"
+                  name="current_password"
+                  placeholder="Current Password"
+                  class="form-input"
+                  required
+                />
+                <input
+                  type="password"
+                  name="confirm_current_password"
+                  placeholder="Confirm Current Password"
+                  class="form-input"
+                  required
+                />
+                <input
+                  type="password"
+                  name="new_password"
+                  placeholder="New Password"
+                  class="form-input"
+                  required
+                />
+                <input
+                  type="password"
+                  name="confirm_new_password"
+                  placeholder="Confirm New Password"
+                  class="form-input"
+                  required
+                />
+                <button type="submit" class="btn-modal">Change</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Forgot Password Modal -->
+          <div id="forgotPasswordModal" class="modal">
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('forgotPasswordModal')"
+                >&times;</span
+              >
+              <h3>Forgot Password</h3>
+              <form
+                id="forgotPasswordForm"
+                action="/forgot_password"
+                method="POST"
+              >
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Enter your registered email"
+                  class="form-input"
+                  required
+                />
+                <button type="submit" class="btn-modal">Send OTP</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Delete Account Modal -->
+          <div id="deleteAccountModal" class="modal">
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('deleteAccountModal')"
+                >&times;</span
+              >
+              <h3>Delete Account</h3>
+              <p style="color: #e74c3c">
+                This action is irreversible. Please confirm your password to
+                delete your account.
+              </p>
+              <form
+                id="deleteAccountForm"
+                action="/delete_account"
+                method="POST"
+              >
+                <input
+                  type="password"
+                  name="delete_password"
+                  placeholder="Confirm Password"
+                  class="form-input"
+                  required
+                />
+                <button type="submit" class="btn-modal danger">Delete</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Logout Modal -->
+          <div id="logoutModal" class="modal">
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('logoutModal')"
+                >&times;</span
+              >
+              <h3>Confirm Logout</h3>
+              <p>Are you sure you want to logout?</p>
+              <div class="logout-buttons">
+                <a href="/logout" class="btn-modal danger">Yes, Logout</a>
+                <button class="btn-modal" onclick="closeModal('logoutModal')">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Delete Account Modal -->
+        <div id="deleteAccountModal" class="modal">
+          <div class="modal-content">
+            <span class="close" onclick="closeModal('deleteAccountModal')"
+              >&times;</span
+            >
+            <h3>Confirm Account Deletion</h3>
+            <form id="deleteAccountForm">
+              <input
+                type="password"
+                name="delete_password"
+                placeholder="Enter Password to Confirm"
+                required
+                class="form-input"
+              />
+              <button type="submit" class="btn-modal danger">
+                Delete Account
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Logout Modal -->
+        <div id="logoutModal" class="modal">
+          <div class="modal-content">
+            <span class="close" onclick="closeModal('logoutModal')"
+              >&times;</span
+            >
+            <h3>Are you sure you want to logout?</h3>
+            <div class="logout-buttons">
+              <a href="/logout" class="btn-modal danger">Yes, Logout</a>
+              <button onclick="closeModal('logoutModal')" class="btn-modal">
+                Cancel
+              </button>
             </div>
           </div>
         </div>
-      </section>
 
-      <!-- History Section -->
-      <section class="content-section" id="history">
-        <div style="background: var(--white); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow);">
-          <h2 style="margin-bottom: 2rem; color: var(--text);">Scan History</h2>
-          <div style="text-align: center; color: var(--text-light); padding: 3rem;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
-            <h3>No scans yet</h3>
-            <p>Your scan history will appear here once you start scanning documents.</p>
-            <button onclick="showSection('scanner')" style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: var(--info); color: var(--white); border: none; border-radius: 8px; cursor: pointer;">
-              Start Scanning
-            </button>
+        <!-- Chatbot Section -->
+        <section class="content-section" id="chatbot">
+          <div class="chatbot-container">
+            <div class="chatbot-header">
+              <span class="nav-icon">🤖</span>
+              <h3>AI Medical Assistant</h3>
+            </div>
+            <div class="chatbot-messages" id="chatMessages">
+              <div class="message bot">
+                <div class="message-avatar">AI</div>
+                <div class="message-content">
+                  Hello! I'm your AI medical assistant. I can help you
+                  understand your medical bills, explain medical terms, and
+                  answer healthcare-related questions. How can I assist you
+                  today?
+                </div>
+              </div>
+            </div>
+            <div class="chatbot-input">
+              <div class="input-group">
+                <input
+                  type="text"
+                  class="chat-input"
+                  id="chatInput"
+                  placeholder="Ask me anything about your medical bills..."
+                />
+                <button class="send-button" onclick="sendMessage()">
+                  Send
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Settings Section -->
-      <section class="content-section" id="settings">
-        <div style="background: var(--white); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow);">
-          <h2 style="margin-bottom: 2rem; color: var(--text);">Settings</h2>
-          <div style="text-align: center; color: var(--text-light); padding: 3rem;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">⚙️</div>
-            <h3>Settings Panel</h3>
-            <p>Configure your preferences and account settings here.</p>
+        <!-- History Section -->
+        <section class="content-section" id="history">
+          <div
+            style="
+              background: var(--white);
+              border-radius: 12px;
+              padding: 2rem;
+              box-shadow: var(--shadow);
+            "
+          >
+            <h2 style="margin-bottom: 2rem; color: var(--text)">
+              Scan History
+            </h2>
+            <div
+              style="
+                text-align: center;
+                color: var(--text-light);
+                padding: 3rem;
+              "
+            >
+              <div style="font-size: 3rem; margin-bottom: 1rem">📋</div>
+              {% if scans and scans|length > 0 %}
+              <ul style="list-style: none; padding: 0">
+                {% for scan in scans %}
+                <li
+                  style="
+                    background: #f1f1f1;
+                    margin-bottom: 1rem;
+                    padding: 1rem;
+                    border-radius: 10px;
+                  "
+                >
+                  <strong>{{ scan.filename }}</strong> <br />
+                  <em>{{ scan.timestamp }}</em><br />
+                  {% if scan.flagged %}
+                  <span style="color: red; font-weight: bold"
+                    >⚠️ Overbilling detected</span
+                  >
+                  {% else %}
+                  <span style="color: green">✅ No overbilling</span>
+                  {% endif %}
+                  <details style="margin-top: 0.5rem">
+                    <summary>View Extracted Text</summary>
+                    <pre style="white-space: pre-wrap; font-size: 0.9rem">
+ {{ scan.text }}</pre
+                    >
+                  </details>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <div
+                style="
+                  text-align: center;
+                  color: var(--text-light);
+                  padding: 3rem;
+                "
+              >
+                <div style="font-size: 3rem; margin-bottom: 1rem">📋</div>
+                <h3>No scans yet</h3>
+                <p>
+                  Your scan history will appear here once you start scanning
+                  documents.
+                </p>
+                <button
+                  onclick="showSection('scanner')"
+                  style="
+                    margin-top: 1rem;
+                    padding: 0.75rem 1.5rem;
+                    background: var(--info);
+                    color: var(--white);
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                  "
+                >
+                  Start Scanning
+                </button>
+              </div>
+              {% endif %}
+
+              <button
+                onclick="showSection('scanner')"
+                style="
+                  margin-top: 1rem;
+                  padding: 0.75rem 1.5rem;
+                  background: var(--info);
+                  color: var(--white);
+                  border: none;
+                  border-radius: 8px;
+                  cursor: pointer;
+                "
+              >
+                Start Scanning
+              </button>
+            </div>
           </div>
+        </section>
+      </main>
+    </div>
+    <div id="feedbackModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('feedbackModal')">&times;</span>
+        <h3 id="feedbackTitle">Action Successful</h3>
+        <p id="feedbackMessage">Your profile was updated successfully.</p>
+        <div style="text-align: center; margin-top: 1.5rem">
+          <button class="btn-modal" onclick="closeModal('feedbackModal')">
+            OK
+          </button>
         </div>
-      </section>
-    </main>
-  </div>
-  <script src="/static/scripts/dashboard.js"></script>
+      </div>
+      <script src="/static/scripts/dashboard.js"></script>
+    </div>
+  </body>
+</html>
