@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = "secret_ayushscan_key"
 DATABASE = "users.db"
 
-# Optional: pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -116,6 +116,9 @@ def signup():
             return jsonify(success=False, message=f"Database error: {str(e)}")
 
     return render_template("signup.html")
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
