@@ -552,21 +552,20 @@
                     border-radius: 10px;
                   "
                 >
-                  <strong>{{ scan.filename }}</strong> <br />
-                  <em>{{ scan.timestamp }}</em><br />
-                  {% if scan.flagged %}
-                  <span style="color: red; font-weight: bold"
-                    >⚠️ Overbilling detected</span
-                  >
-                  {% else %}
-                  <span style="color: green">✅ No overbilling</span>
-                  {% endif %}
-                  <details style="margin-top: 0.5rem">
-                    <summary>View Extracted Text</summary>
-                    <pre style="white-space: pre-wrap; font-size: 0.9rem">
- {{ scan.text }}</pre
-                    >
-                  </details>
+                  <strong>{{ scan.filename }}</strong><br />
+              <em>{{ scan.timestamp }}</em><br />
+
+              {% if scan.flagged %}
+                <span style="color: red; font-weight: bold">⚠️ Overbilling detected</span>
+              {% else %}
+                <span style="color: green">✅ No overbilling</span>
+              {% endif %}
+
+              <!-- 🔁 New Link to Result Page -->
+              <div style="margin-top: 0.5rem">
+                <a href="/result/{{ scan["id"] }}" style="font-weight: bold; color: #2d7ae0;">
+                  🔍 View Detailed Bill Analysis
+                </a>
                 </li>
                 {% endfor %}
               </ul>

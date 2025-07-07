@@ -340,7 +340,12 @@ def dashboard():
     with get_db_connection() as conn:
         user = conn.execute("SELECT username, email, first_name, last_name FROM users WHERE id = ?", (user_id,)).fetchone()
 
-        scans = conn.execute("SELECT filename, flagged, timestamp FROM scans WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)).fetchall()
+        scans = conn.execute("""
+    SELECT id, filename, flagged, timestamp 
+    FROM scans 
+    WHERE user_id = ? 
+    ORDER BY timestamp DESC
+""", (user_id,)).fetchall()
 
     return render_template("dashboard.html", user=user, scans=scans)
 
@@ -450,18 +455,22 @@ def scan():
 
         # ✅ Save to DB
         with get_db_connection() as conn:
-            conn.execute("""
+            cursor = conn.cursor()
+            cursor.execute(""" 
                 INSERT INTO scans (user_id, filename, text, flagged)
                 VALUES (?, ?, ?, ?)
             """, (session["user_id"], filename, text, json.dumps(overbilled_items)))
             conn.commit()
+            scan_id = cursor.lastrowid  # ✅ Now this will return the correct scan ID
 
         return jsonify(
             success=True,
+            scan_id=scan_id,
             message="⚠️ Overbilling detected in scanned bill." if overbilled_items else "✅ No overbilling detected.",
             flagged=overbilled_items,
             text=text
         )
+        
 
     except UnidentifiedImageError:
         return jsonify(success=False, message="Invalid or corrupted image file."), 400
@@ -470,6 +479,26 @@ def scan():
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
+
+@app.route("/result/<int:scan_id>")
+def results(scan_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    with get_db_connection() as conn:
+        scan = conn.execute(
+            "SELECT * FROM scans WHERE id = ? AND user_id = ?",
+            (scan_id, session["user_id"])
+        ).fetchone()
+
+        if not scan:
+            return "Scan not found or unauthorized access", 404
+
+        flagged = json.loads(scan["flagged"] or "{}")
+        non_flagged = {}  # You can populate this later if needed
+
+    return render_template("result.html", flagged=flagged, non_flagged=non_flagged)
+
 
 # =================== Main ===================
 if __name__ == "__main__":

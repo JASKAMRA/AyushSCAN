@@ -197,25 +197,20 @@ scannerForm.addEventListener("submit", function (e) {
   })
     .then((response) => response.json())
     .then((data) => {
+      console.log("🟢 Received from backend:", data);
+
       scanBtn.disabled = false;
       loadingSpinner.style.display = "none";
 
-      if (data.success) {
-        let msg = data.message;
+      if (data.success && data.scan_id) {
+        // Save scan result to localStorage
+        localStorage.setItem("scanResults", JSON.stringify(data));
 
-        if (Object.keys(data.flagged || {}).length > 0) {
-          msg += "\n\nOverbilling Detected:\n";
-          for (const item in data.flagged) {
-            const f = data.flagged[item];
-            msg += `\n- ${item.toUpperCase()}: Billed ₹${f.billed}, Expected ₹${
-              f.expected
-            } → Extra ₹${f.extra}`;
-          }
-        }
-
-        alert(msg);
+        // Redirect to result page
+        window.location.href = `/result/${data.scan_id}`;
       } else {
-        alert("❌ Error: " + data.message);
+        // ❌ Only show alert if scan truly failed
+        alert("❌ Scan Failed: " + (data.message || "Unknown error"));
       }
     })
     .catch((error) => {
@@ -224,6 +219,7 @@ scannerForm.addEventListener("submit", function (e) {
       alert("Something went wrong: " + error.message);
     });
 });
+
 const params = new URLSearchParams(window.location.search);
 const msg = params.get("message");
 if (msg) {
