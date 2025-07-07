@@ -21,7 +21,46 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 UPLOAD_FOLDER = "uploads"
 CSV_FILE = "products.csv"
 
+import re
+
+def detect_column_indices(lines):
+    for i, line in enumerate(lines[:3]):
+        if "quantity" in line.lower() and ("price" in line.lower() or "unit" in line.lower()):
+            headers = re.split(r"\s{2,}", line.lower())
+            col_map = {}
+            for idx, header in enumerate(headers):
+                if "quantity" in header:
+                    col_map["quantity"] = idx
+                elif "price" in header or "unit" in header:
+                    col_map["price"] = idx
+                elif "total" in header:
+                    col_map["total"] = idx
+            return col_map, i
+    return {}, -1
+
+
+
 # Load standard prices from CSV
+def extract_price_info(line):
+    numbers = re.findall(r"\d+\.\d{1,2}|\d+", line)
+    if len(numbers) >= 2:
+        try:
+            total = float(numbers[-1])
+            quantity = float(numbers[-2])
+            if quantity > 0:
+                return round(total / quantity, 2), "calculated_unit_price"
+        except:
+            pass
+    elif len(numbers) == 1:
+        try:
+            return float(numbers[0]), "single_number"
+        except:
+            pass
+    return None, "not_found"
+
+
+
+
 def load_standard_prices(csv_path):
     prices = {}
     with open(csv_path, newline='', encoding='utf-8') as csvfile:
@@ -185,10 +224,14 @@ def scan():
         print("==========================================\n")
 
         lines = text.lower().splitlines()
+        col_map, header_idx = detect_column_indices(lines)
         overbilled_items = {}
 
         print("🔍 ANALYSIS:")
-        for line in lines:
+        for i, line in enumerate(lines):
+            if i <= header_idx:
+                continue  # Skip header line and above
+
             clean_line = preprocess(line.strip())
             if not clean_line:
                 continue
@@ -199,45 +242,57 @@ def scan():
             best_score = 0.0
             ocr_mg = extract_mg(clean_line)
 
-            # Find best fuzzy match
+            # Fuzzy match with MG check
             for product in standard_prices:
                 processed_product = preprocess(product)
                 product_mg = extract_mg(processed_product)
 
-    # 💊 MG check
-                if ocr_mg is not None and product_mg is not None and ocr_mg != product_mg:
-                    continue  # ❌ MG doesn't match — skip
-                score = fuzz.token_set_ratio(clean_line, processed_product) / 100.0
+                if ocr_mg and product_mg and ocr_mg != product_mg:
+                    continue
 
-                if score > best_score and score > 0.6:  # 0.67 thresholdd
+                score = fuzz.token_set_ratio(clean_line, processed_product) / 100.0
+                if score > best_score and score > 0.6:
                     best_score = score
                     best_match = product
 
             if best_match:
                 matched = True
                 expected_price = standard_prices[best_match]
-                amount_match = re.findall(r"\d+\.\d{1,2}|\d+", line)
 
-                if amount_match:
-                    try:
-                        billed_amount = float(amount_match[-1])
-                        print(f"→ 🏷 Matched Item: {best_match.upper()} (Score: {best_score:.2f})")
-                        print(f"   🏷 MRP from CSV: ₹{expected_price:.2f}")
-                        print(f"   💵 Billed Amount: ₹{billed_amount:.2f}")
+                # First try structured column parsing
+                billed_amount = None
+                price_type = "unknown"
+                parts = re.split(r"\s{2,}", line.strip())
 
-                        if billed_amount > expected_price:
-                            overbilled_items[best_match] = {
-                                "expected": expected_price,
-                                "billed": billed_amount,
-                                "extra": round(billed_amount - expected_price, 2)
-                            }
-                            print(f"   🚨 Overbilled by ₹{billed_amount - expected_price:.2f}")
-                        else:
-                            print(f"   ✅ Billed correctly or below MRP.")
-                    except Exception as e:
-                        print(f"   ⚠️ Error parsing amount: {e}")
+                try:
+                    if col_map and "price" in col_map and len(parts) > col_map["price"]:
+                        billed_amount = float(parts[col_map["price"]].replace("₹", "").strip())
+                        price_type = "unit_price (from column)"
+                        print("📊 Price extracted from column format.")
+                    else:
+                        # Fallback method
+                        billed_amount, price_type = extract_price_info(line)
+                except Exception as e:
+                    print(f"⚠️ Error extracting price: {e}")
+
+                if billed_amount is not None:
+                    print(f"→ 🏷 Matched Item: {best_match.upper()} (Score: {best_score:.2f})")
+                    print(f"   💊 Price Type: {price_type}")
+                    print(f"   🏷 MRP from CSV: ₹{expected_price:.2f}")
+                    print(f"   💵 Billed Amount: ₹{billed_amount:.2f}")
+
+                    if billed_amount > expected_price:
+                        overbilled_items[best_match] = {
+                            "expected": expected_price,
+                            "billed": billed_amount,
+                            "extra": round(billed_amount - expected_price, 2),
+                            "note": f"Compared using {price_type}"
+                        }
+                        print(f"   🚨 Overbilled by ₹{billed_amount - expected_price:.2f}")
+                    else:
+                        print(f"   ✅ Billed correctly or below MRP.")
                 else:
-                    print("   ⚠️ No amount found in line.")
+                    print("⚠️ Could not extract billed price.")
             else:
                 print("❌ No matching product found in this line.")
 
@@ -257,6 +312,7 @@ def scan():
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
+
 
 
 # =================== Main ===================
