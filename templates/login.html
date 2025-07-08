@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AyushScan - Login</title>
+    <title>
+      {% if lang == 'hindi' %}आयुषस्कैन - लॉगिन{% else %}AyushScan - Login{%
+      endif %}
+    </title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -16,20 +19,28 @@
   <body>
     <div class="container">
       <div class="header">
-        <div class="title">Welcome Back</div>
-        <div class="subtitle">Sign in to your AyushScan account</div>
+        <div class="title">
+          {% if lang == 'hindi' %}वापसी पर स्वागत है{% else %}Welcome Back{%
+          endif %}
+        </div>
+        <div class="subtitle">
+          {% if lang == 'hindi' %}अपने आयुषस्कैन खाते में साइन इन करें{% else
+          %}Sign in to your AyushScan account{% endif %}
+        </div>
       </div>
 
       <form class="login-form" id="loginForm" action="/login" method="POST">
         <div class="form-group">
-          <label class="form-label" for="email">Email Address</label>
+          <label class="form-label" for="email">
+            {% if lang == 'hindi' %}ईमेल पता{% else %}Email Address{% endif %}
+          </label>
           <div class="input-group">
             <input
               type="email"
               id="email"
               name="email"
               class="form-input"
-              placeholder="Enter your email"
+              placeholder="{% if lang == 'hindi' %}अपना ईमेल दर्ज करें{% else %}Enter your email{% endif %}"
               required
               autocomplete="email"
             />
@@ -38,14 +49,16 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="password">Password</label>
+          <label class="form-label" for="password">
+            {% if lang == 'hindi' %}पासवर्ड{% else %}Password{% endif %}
+          </label>
           <div class="input-group">
             <input
               type="password"
               id="password"
               name="password"
               class="form-input"
-              placeholder="Enter your password"
+              placeholder="{% if lang == 'hindi' %}अपना पासवर्ड दर्ज करें{% else %}Enter your password{% endif %}"
               required
               autocomplete="current-password"
             />
@@ -54,18 +67,26 @@
             </button>
           </div>
           <div class="forgot-password">
-            <a href="#" id="forgotPassword">Forgot Password?</a>
+            <a href="#" id="forgotPassword">
+              {% if lang == 'hindi' %}पासवर्ड भूल गए?{% else %}Forgot
+              Password?{% endif %}
+            </a>
           </div>
         </div>
 
         <button class="btn-submit" type="submit" id="submitButton">
-          <span class="btn-text">LOGIN</span>
+          <span class="btn-text">
+            {% if lang == 'hindi' %}लॉगिन करें{% else %}LOGIN{% endif %}
+          </span>
           <div class="btn-spinner"></div>
         </button>
       </form>
 
       <div class="alt-link">
-        Don't have an account? <a href="/signup">Create one here</a>
+        {% if lang == 'hindi' %} खाता नहीं है?
+        <a href="/signup">यहाँ बनाएँ</a> {% else %} Don't have an account?
+        <a href="/signup">Create one here</a>
+        {% endif %}
       </div>
     </div>
 

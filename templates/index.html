@@ -3,137 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AyushScan - Welcome</title>
+    <title>AyushScan - {{ 'Welcome' if lang == 'english' else 'स्वागत है' }}</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Poppins", sans-serif;
-      }
-
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(to right, #fdf6ec, #e3f4f4);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-
-      .container {
-        max-width: 480px;
-        width: 90%;
-        background: white;
-        padding: 3rem 2rem;
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        text-align: center;
-      }
-
-      .heading {
-        font-size: 22px;
-        color: #7d9774;
-        font-weight: 600;
-      }
-
-      .main-title {
-        font-size: 48px;
-        font-weight: 800;
-        color: #2e2e2e;
-        margin-top: 0.5rem;
-      }
-
-      .subheading {
-        margin-top: 40px;
-        font-size: 18px;
-        color: #555;
-      }
-
-      .button-group {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 15px;
-        margin-top: 20px;
-      }
-
-      .btn {
-        padding: 12px 28px;
-        border-radius: 30px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: 0.3s ease-in-out;
-        border: none;
-      }
-
-      .btn-start {
-        background-color: #f7a072;
-        color: white;
-      }
-
-      .btn-start:hover {
-        background-color: #f9955d;
-        transform: scale(1.05);
-      }
-
-      .btn-about {
-        background: linear-gradient(to right, #7d9774, #b6d7a8);
-        color: white;
-        box-shadow: 0 4px 10px rgba(125, 151, 116, 0.3);
-      }
-
-      .btn-about:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 15px rgba(125, 151, 116, 0.5);
-      }
-
-      .btn-login {
-        margin-top: 20px;
-        background: none;
-        border: 2px solid #f7a072;
-        color: #f7a072;
-      }
-
-      .btn-login:hover {
-        background-color: #f7a072;
-        color: white;
-      }
-    </style>
+    <link rel="stylesheet" href="/static/styles/index.css" />
   </head>
   <body>
     <div class="container">
-      <div class="heading">Welcome to</div>
+      <!-- 🔰 Language Selector -->
+      <form
+        action="/set_language"
+        method="POST"
+        style="text-align: right; margin-bottom: 20px"
+      >
+        <label for="language" style="margin-right: 10px">🌐 {{ 'Language' if lang == 'english' else 'भाषा' }}:</label>
+        <select
+          name="language"
+          id="language"
+          onchange="this.form.submit()"
+          style="padding: 5px"
+        >
+          <option value="english" {% if lang == 'english' %}selected{% endif %}>English</option>
+          <option value="hindi" {% if lang == 'hindi' %}selected{% endif %}>हिन्दी</option>
+        </select>
+      </form>
+      <!-- 🔰 End Language Selector -->
+
+      <div class="heading">{{ 'Welcome to' if lang == 'english' else 'स्वागत है' }}</div>
       <div class="main-title">AyushScan</div>
-      <div class="subheading">Let’s Begin Your</div>
+      <div class="subheading">{{ 'Let’s Begin Your' if lang == 'english' else 'आइए शुरू करें आपका' }}</div>
 
       <div class="button-group">
         <button
           class="btn btn-start"
           onclick="window.location.href='{{ url_for('signup') }}'"
         >
-          Journey
+          {{ 'Journey' if lang == 'english' else 'सफर' }}
         </button>
         <button
           class="btn btn-about"
           onclick="window.location.href='{{ url_for('about') }}'"
         >
-          About Us
+          {{ 'About Us' if lang == 'english' else 'हमारे बारे में' }}
         </button>
       </div>
 
-      <div class="subheading">Already a user?</div>
+      <div class="subheading">
+        {{ 'Already a user?' if lang == 'english' else 'पहले से यूज़र हैं?' }}
+      </div>
       <button
         class="btn btn-login"
         onclick="window.location.href='{{ url_for('login') }}'"
       >
-        LOGIN
+        {{ 'LOGIN' if lang == 'english' else 'लॉगिन करें' }}
       </button>
     </div>
   </body>

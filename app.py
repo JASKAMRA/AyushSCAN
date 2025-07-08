@@ -11,6 +11,15 @@ import random
 
 
 app = Flask(__name__)
+@app.before_request
+def ensure_language_selected():
+    if request.endpoint not in ['set_language', 'static', 'home', 'index']:
+        if 'language' not in session:
+            return redirect(url_for('index'))
+@app.context_processor
+def inject_lang():
+    return {'lang': session.get('language', 'english')}
+
 app.secret_key = "secret_ayushscan_key"
 DATABASE = "users.db"
 
@@ -283,6 +292,14 @@ def change_password():
         conn.commit()
 
     return redirect(url_for('dashboard', message="Password changed successfully"))
+
+@app.route('/set_language', methods=['POST'])
+def set_language():
+    selected = request.form.get('language', 'english')
+    session['language'] = selected
+    return redirect(request.referrer or '/dashboard')  # return to current page
+
+
 
 @app.route('/forgot_password', methods=['POST'])
 def forgot_password():

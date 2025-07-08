@@ -3,238 +3,121 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>About - AyushScan</title>
+    <title>
+      {% if lang == 'hindi' %}हमारे बारे में - आयुषस्कैन{% else %}About -
+      AyushScan{% endif %}
+    </title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Poppins", sans-serif;
-      }
-
-      body {
-        background: #f4f7f6;
-        color: #333;
-        padding: 2rem 1.5rem 0;
-      }
-
-      h1,
-      h2 {
-        text-align: center;
-        margin-bottom: 1.5rem;
-        color: #2d4739;
-      }
-
-      .back-home {
-        text-align: center;
-        margin-bottom: 2rem;
-      }
-
-      .back-home a {
-        background: #6dd3a8;
-        padding: 10px 25px;
-        border-radius: 25px;
-        color: white;
-        font-weight: 600;
-        text-decoration: none;
-        transition: background 0.3s ease;
-      }
-
-      .back-home a:hover {
-        background: #50be93;
-      }
-
-      .vision-box {
-        max-width: 850px;
-        background-color: #e9f6f1;
-        padding: 2rem;
-        margin: auto;
-        border-radius: 15px;
-        font-size: 17px;
-        line-height: 1.8;
-        margin-bottom: 3rem;
-        color: #333;
-        box-shadow: 0 0 15px rgba(80, 120, 100, 0.1);
-      }
-
-      .cards-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 2rem;
-        max-width: 1100px;
-        margin: 0 auto 4rem auto;
-      }
-
-      .card {
-        background: #ffffff;
-        border: 1px solid #d8f3df;
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: 0 0 10px rgba(173, 216, 188, 0.1);
-        transition: transform 0.3s ease;
-      }
-
-      .card:hover {
-        transform: translateY(-5px);
-      }
-
-      .card h3 {
-        color: #267a50;
-        margin-bottom: 0.75rem;
-      }
-
-      .card p {
-        font-size: 15px;
-        line-height: 1.6;
-        color: #333;
-      }
-
-      footer {
-        background-color: #e4f1ed;
-        padding: 2rem 1.5rem;
-        margin-top: 4rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .footer-sections {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        width: 100%;
-        max-width: 1100px;
-        gap: 2rem;
-        margin-bottom: 2rem;
-      }
-
-      .footer-left,
-      .footer-right {
-        flex: 1;
-        min-width: 250px;
-      }
-
-      .footer-center {
-        width: 100%;
-        text-align: center;
-      }
-
-      footer h3 {
-        color: #2f5c4c;
-        margin-bottom: 1rem;
-      }
-
-      footer p {
-        color: #333;
-        font-size: 15px;
-        margin: 0.5rem 0;
-      }
-
-      .contact-form input,
-      .contact-form textarea {
-        width: 100%;
-        margin-top: 10px;
-        padding: 10px;
-        border-radius: 10px;
-        border: 1px solid #ccc;
-        font-size: 15px;
-      }
-
-      button.send-btn {
-        margin-top: 1rem;
-        padding: 10px 30px;
-        border-radius: 30px;
-        background-color: #6dd3a8;
-        border: none;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      button.send-btn:hover {
-        background-color: #50be93;
-      }
-
-      .credit {
-        font-size: 13px;
-        color: #777;
-        text-align: center;
-      }
-
-      @media (max-width: 768px) {
-        .footer-sections {
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-        }
-
-        .footer-left,
-        .footer-right {
-          max-width: 100%;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="/static/styles/about.css" />
   </head>
   <body>
     <div class="back-home">
-      <a href="{{ url_for('index') }}">← Back to Home</a>
+      <a href="{{ url_for('index') }}"
+        >← {% if lang == 'hindi' %}होम पर लौटें{% else %}Back to Home{% endif
+        %}</a
+      >
     </div>
 
-    <h1>About Us</h1>
+    <h1>{% if lang == 'hindi' %}हमारे बारे में{% else %}About Us{% endif %}</h1>
 
-    <h2>Our Vision</h2>
+    <h2>
+      {% if lang == 'hindi' %}हमारा दृष्टिकोण{% else %}Our Vision{% endif %}
+    </h2>
     <div class="vision-box">
-      We aim to make healthcare billing transparent, understandable, and
-      accessible for everyone. AyushScan empowers users to detect overbilling,
-      decode complex terms, and get support in their own language — with
-      built-in GPS to find nearby government hospitals and access to government
-      health schemes.
+      {% if lang == 'hindi' %} हम स्वास्थ्य देखभाल बिलिंग को पारदर्शी, समझने
+      योग्य और सभी के लिए सुलभ बनाना चाहते हैं। आयुषस्कैन उपयोगकर्ताओं को
+      ओवरबिलिंग का पता लगाने, जटिल शब्दों को समझने और अपनी भाषा में समर्थन
+      प्राप्त करने की शक्ति देता है — साथ ही नजदीकी सरकारी अस्पताल खोजने और
+      सरकारी योजनाओं तक पहुंच की सुविधा देता है। {% else %} We aim to make
+      healthcare billing transparent, understandable, and accessible for
+      everyone. AyushScan empowers users to detect overbilling, decode complex
+      terms, and get support in their own language — with built-in GPS to find
+      nearby government hospitals and access to government health schemes. {%
+      endif %}
     </div>
 
-    <h2>What We Do</h2>
+    <h2>
+      {% if lang == 'hindi' %}हम क्या करते हैं{% else %}What We Do{% endif %}
+    </h2>
     <div class="cards-section">
       <div class="card">
-        <h3>Scan Medical Bills</h3>
-        <p>Upload your medical bills and get instant insights powered by AI.</p>
-      </div>
-      <div class="card">
-        <h3>Detect Overbilling</h3>
+        <h3>
+          {% if lang == 'hindi' %}मेडिकल बिल स्कैन करें{% else %}Scan Medical
+          Bills{% endif %}
+        </h3>
         <p>
-          We identify inflated charges and unnecessary additions in your bill.
+          {% if lang == 'hindi' %}अपने मेडिकल बिल अपलोड करें और AI से तुरंत
+          परिणाम प्राप्त करें।{% else %}Upload your medical bills and get
+          instant insights powered by AI.{% endif %}
         </p>
       </div>
       <div class="card">
-        <h3>Simple Explanations</h3>
-        <p>Complex terms are simplified for easy understanding — no jargon.</p>
-      </div>
-      <div class="card">
-        <h3>Support for Hindi & Voice</h3>
+        <h3>
+          {% if lang == 'hindi' %}ओवरबिलिंग का पता लगाएं{% else %}Detect
+          Overbilling{% endif %}
+        </h3>
         <p>
-          Interact with the system in Hindi or using voice — comfort comes
-          first.
+          {% if lang == 'hindi' %}हम बिल में बढ़ी हुई कीमतों और अनावश्यक वस्तुओं
+          की पहचान करते हैं।{% else %}We identify inflated charges and
+          unnecessary additions in your bill.{% endif %}
         </p>
       </div>
       <div class="card">
-        <h3>Nearby Govt. Hospitals</h3>
+        <h3>
+          {% if lang == 'hindi' %}सरल व्याख्या{% else %}Simple Explanations{%
+          endif %}
+        </h3>
         <p>
-          Using GPS, we help you locate nearby affordable and trusted hospitals.
+          {% if lang == 'hindi' %}जटिल शब्दों को आसान भाषा में समझाया जाता है —
+          बिना किसी तकनीकी भाषा के।{% else %}Complex terms are simplified for
+          easy understanding — no jargon.{% endif %}
         </p>
       </div>
       <div class="card">
-        <h3>Health Scheme Suggestions</h3>
+        <h3>
+          {% if lang == 'hindi' %}हिंदी और आवाज़ का समर्थन{% else %}Support for
+          Hindi & Voice{% endif %}
+        </h3>
         <p>
-          Based on your profile and bill, get suggested govt. schemes you may
-          qualify for.
+          {% if lang == 'hindi' %}आप हिंदी या आवाज़ के माध्यम से बातचीत कर सकते
+          हैं — आपकी सुविधा हमारे लिए सर्वोपरि है।{% else %}Interact with the
+          system in Hindi or using voice — comfort comes first.{% endif %}
         </p>
       </div>
       <div class="card">
-        <h3>Ask Our Chatbot</h3>
+        <h3>
+          {% if lang == 'hindi' %}नजदीकी सरकारी अस्पताल{% else %}Nearby Govt.
+          Hospitals{% endif %}
+        </h3>
         <p>
-          Got doubts about your health or billing? Ask our AI-powered chatbot
-          instantly.
+          {% if lang == 'hindi' %}GPS की मदद से, हम आपको नजदीकी सस्ते और
+          विश्वसनीय अस्पताल खोजने में मदद करते हैं।{% else %}Using GPS, we help
+          you locate nearby affordable and trusted hospitals.{% endif %}
+        </p>
+      </div>
+      <div class="card">
+        <h3>
+          {% if lang == 'hindi' %}स्वास्थ्य योजना सुझाव{% else %}Health Scheme
+          Suggestions{% endif %}
+        </h3>
+        <p>
+          {% if lang == 'hindi' %}आपके प्रोफाइल और बिल के आधार पर, हम आपको
+          उपयुक्त सरकारी योजनाएं सुझाव देते हैं।{% else %}Based on your profile
+          and bill, get suggested govt. schemes you may qualify for.{% endif %}
+        </p>
+      </div>
+      <div class="card">
+        <h3>
+          {% if lang == 'hindi' %}हमारे चैटबॉट से पूछें{% else %}Ask Our
+          Chatbot{% endif %}
+        </h3>
+        <p>
+          {% if lang == 'hindi' %}अपने स्वास्थ्य या बिल से संबंधित किसी भी सवाल
+          के लिए हमारे AI चैटबॉट से तुरंत पूछें।{% else %}Got doubts about your
+          health or billing? Ask our AI-powered chatbot instantly.{% endif %}
         </p>
       </div>
     </div>
@@ -242,9 +125,13 @@
     <footer>
       <div class="footer-sections">
         <div class="footer-left">
-          <h3>Contact Us</h3>
+          <h3>
+            {% if lang == 'hindi' %}संपर्क करें{% else %}Contact Us{% endif %}
+          </h3>
           <p style="font-size: small">
-            All queries will be answered in 24–48 hours
+            {% if lang == 'hindi' %}सभी प्रश्नों का उत्तर 24–48 घंटों में दिया
+            जाएगा{% else %}All queries will be answered in 24–48 hours{% endif
+            %}
           </p>
           <form
             class="contact-form"
@@ -254,36 +141,48 @@
             <input
               type="text"
               name="name"
-              placeholder="Your Name"
+              placeholder="{% if lang == 'hindi' %}आपका नाम{% else %}Your Name{% endif %}"
               required
             /><br />
             <input
               type="email"
               name="email"
-              placeholder="Your Email"
+              placeholder="{% if lang == 'hindi' %}आपका ईमेल{% else %}Your Email{% endif %}"
               required
             /><br />
             <textarea
               name="message"
               rows="4"
-              placeholder="Your Message..."
+              placeholder="{% if lang == 'hindi' %}आपका संदेश...{% else %}Your Message...{% endif %}"
               required
             ></textarea
             ><br />
-            <button type="submit" class="send-btn">Send Message</button>
+            <button type="submit" class="send-btn">
+              {% if lang == 'hindi' %}संदेश भेजें{% else %}Send Message{% endif
+              %}
+            </button>
           </form>
         </div>
 
         <div class="footer-right">
-          <h3>Our Team</h3>
+          <h3>
+            {% if lang == 'hindi' %}हमारी टीम{% else %}Our Team{% endif %}
+          </h3>
           <p><strong>Akshita Sachdeva</strong> — UI/UX & Integration</p>
           <p><strong>Jas Kamra</strong> — Backend & Overbilling Logic</p>
         </div>
       </div>
 
       <div class="footer-center">
-        <h3>Built With ❤️</h3>
-        <p>It's our mission to make healthcare smarter and simpler.</p>
+        <h3>
+          {% if lang == 'hindi' %}❤️ के साथ बनाया गया{% else %}Built With ❤️{%
+          endif %}
+        </h3>
+        <p>
+          {% if lang == 'hindi' %}हमारा मिशन है कि स्वास्थ्य देखभाल को स्मार्ट
+          और आसान बनाना।{% else %}It's our mission to make healthcare smarter
+          and simpler.{% endif %}
+        </p>
       </div>
 
       <div class="credit">© 2025 AyushScan.</div>

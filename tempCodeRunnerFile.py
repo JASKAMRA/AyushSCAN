@@ -11,6 +11,15 @@ import random
 
 
 app = Flask(__name__)
+@app.before_request
+def ensure_language_selected():
+    if request.endpoint not in ['set_language', 'static', 'home', 'index']:
+        if 'language' not in session:
+            return redirect(url_for('index'))
+@app.context_processor
+def inject_lang():
+    return {'lang': session.get('language', 'english')}
+
 app.secret_key = "secret_ayushscan_key"
 DATABASE = "users.db"
 
@@ -284,6 +293,14 @@ def change_password():
 
     return redirect(url_for('dashboard', message="Password changed successfully"))
 
+@app.route('/set_language', methods=['POST'])
+def set_language():
+    selected = request.form.get('language', 'english')
+    session['language'] = selected
+    return redirect(request.referrer or '/dashboard')  # return to current page
+
+
+
 @app.route('/forgot_password', methods=['POST'])
 def forgot_password():
     email = request.form['email']
@@ -340,7 +357,12 @@ def dashboard():
     with get_db_connection() as conn:
         user = conn.execute("SELECT username, email, first_name, last_name FROM users WHERE id = ?", (user_id,)).fetchone()
 
-        scans = conn.execute("SELECT filename, flagged, timestamp FROM scans WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)).fetchall()
+        scans = conn.execute("""
+    SELECT id, filename, flagged, timestamp 
+    FROM scans 
+    WHERE user_id = ? 
+    ORDER BY timestamp DESC
+""", (user_id,)).fetchall()
 
     return render_template("dashboard.html", user=user, scans=scans)
 
@@ -450,13 +472,14 @@ def scan():
 
         # ✅ Save to DB
         with get_db_connection() as conn:
-            cursor=conn.cursor()
-            conn.execute("""
+            cursor = conn.cursor()
+            cursor.execute(""" 
                 INSERT INTO scans (user_id, filename, text, flagged)
                 VALUES (?, ?, ?, ?)
             """, (session["user_id"], filename, text, json.dumps(overbilled_items)))
             conn.commit()
-            scan_id = cursor.lastrowid 
+            scan_id = cursor.lastrowid  # ✅ Now this will return the correct scan ID
+
         return jsonify(
             success=True,
             scan_id=scan_id,
@@ -489,16 +512,10 @@ def results(scan_id):
             return "Scan not found or unauthorized access", 404
 
         flagged = json.loads(scan["flagged"] or "{}")
-        non_flagged = {}
-
-        # Optional: If you want to show correct items too
-        all_items = json.loads(scan["text"])
-        for item in flagged:
-            all_items.pop(item, None)
-        for item in all_items:
-            non_flagged[item] = all_items[item]
+        non_flagged = {}  # You can populate this later if needed
 
     return render_template("result.html", flagged=flagged, non_flagged=non_flagged)
+
 
 # =================== Main ===================
 if __name__ == "__main__":
