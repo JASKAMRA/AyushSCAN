@@ -39,7 +39,7 @@ body {
 }
 
 .subheading {
-  margin-top: 40px;
+  margin-top: 20px;
   font-size: 18px;
   color: #555;
 }
@@ -93,4 +93,15 @@ body {
 .btn-login:hover {
   background-color: #f7a072;
   color: white;
+}
+.logo-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0px 0px 0px;
+}
+
+.logo-img {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
 }

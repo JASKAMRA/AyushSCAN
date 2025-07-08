@@ -165,3 +165,29 @@ button.send-btn:hover {
     max-width: 100%;
   }
 }
+/* === Blurred Background Logo in Footer === */
+.logo-bg-blur {
+  position: absolute;
+  top: 60%;
+  left: 63%;
+  transform: translate(-50%, -50%);
+  background-image: url("/static/images/LOGO.png"); /* OR use url_for Jinja syntax if inline in <style> */
+  background-size: 220px auto;
+  background-repeat: no-repeat;
+  background-position: right;
+  opacity: 0.07;
+  filter: blur(2px);
+  width: 320px;
+  height: 320px;
+  z-index: 0;
+}
+
+footer {
+  position: relative;
+  overflow: hidden; /* required to keep logo inside footer */
+}
+
+footer > *:not(.logo-bg-blur) {
+  position: relative;
+  z-index: 1;
+}

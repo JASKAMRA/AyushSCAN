@@ -12,6 +12,8 @@
   </head>
   <body>
     <div class="container">
+
+    
       <!-- 🔰 Language Selector -->
       <form
         action="/set_language"
@@ -33,6 +35,9 @@
 
       <div class="heading">{{ 'Welcome to' if lang == 'english' else 'स्वागत है' }}</div>
       <div class="main-title">AyushScan</div>
+      <div class="logo-wrapper">
+        <img src="{{ url_for('static', filename='images/LOGO.png') }}" alt="AyushScan Logo" class="logo-img" />
+      </div>
       <div class="subheading">{{ 'Let’s Begin Your' if lang == 'english' else 'आइए शुरू करें आपका' }}</div>
 
       <div class="button-group">

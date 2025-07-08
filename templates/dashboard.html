@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/static/styles/dashboard.css" />
   </head>
   <body>
-    <form action="/set_language" method="POST" style="position: absolute; top: 20px; right: 20px;">
+    <form action="/set_language" method="POST" style="position: absolute; top: 40px; left: 1300px;">
   <select name="language" onchange="this.form.submit()" style="padding: 5px; border-radius: 5px;">
     <option value="english" {% if lang == 'english' %}selected{% endif %}>English</option>
     <option value="hindi" {% if lang == 'hindi' %}selected{% endif %}>हिन्दी</option>
@@ -21,7 +21,15 @@
     <div class="dashboard">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-          <div class="sidebar-logo">AyushScan</div>
+          {# <div class="sidebar-logo-wrapper">
+            <img src="/static/images/logo.png" alt="AyushScan Logo" class="sidebar-logo-image" />
+          <div>
+          <div class="sidebar-logo">AyushScan</div> #}
+          <div class="sidebar-logo" style="display: flex;margin-right:200px; gap:5px;">
+            <img src="/static/images/LOGO.png" alt="Logo" style="height: 34px;background-color:#f1f1f1;" />
+            AyushScan
+          </div>
+
           <div class="sidebar-subtitle">{% if lang == 'hindi' %}भारत के लिए अनुकूलित{% else %}Tailored for Bharat{% endif %}</div>
         </div>
         <nav>
