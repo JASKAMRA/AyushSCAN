@@ -51,22 +51,20 @@
 
 ---
 
-##Project Structure
-AyushScan/
-├── static/
-├── templates/
-├── uploads/
-├── app.py
-├── products.csv
-├── requirements.txt
-└── README.md
+## Project Structure
 
-##👤 Developers
+<img width="185" height="154" alt="image" src="https://github.com/user-attachments/assets/26333d4e-56a4-47ff-bca6-68f4a7baa804" />
+
+
+---
+
+## 👤 Developers
 
 ->Akshita Sachdeva
 
 ->Jas Kamra
 
+---
 ## 🛠️ How to Run Locally
 
 ```bash
