@@ -51,11 +51,27 @@
 
 ---
 
+##Project Structure
+AyushScan/
+├── static/
+├── templates/
+├── uploads/
+├── app.py
+├── products.csv
+├── requirements.txt
+└── README.md
+
+##👤 Developers
+
+->Akshita Sachdeva
+
+->Jas Kamra
+
 ## 🛠️ How to Run Locally
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ayushscan.git
+git clone https://github.com/JASKAMRA/AyushSCAN
 cd ayushscan
 
 # (Optional) Create a virtual environment
@@ -70,3 +86,5 @@ python app.py
 
 # Open in browser
 http://127.0.0.1:5000
+
+
