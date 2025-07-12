@@ -32,7 +32,7 @@
 | Feature | Description |
 |--------|-------------|
 | 📄 Bill Scanner | Uploads and scans bills to detect overpriced medicines/services |
-| 💬 AI Chatbot | Currently a basic Gemini-powered chatbot (Ask Didi integration coming soon) |
+| 💬 AI Chatbot | Currently a basic Gemini-powered chatbot  |
 | 🏥 Nearby Hospitals | Shows a static list based on location input (Google Maps API not yet integrated) |
 | 🧾 User Dashboard | Displays past scans, profile info, and analysis history |
 | 🔐 Auth System | Basic login/signup with sessions (password encryption not yet added) |
