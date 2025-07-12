@@ -2,10 +2,155 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>chatbot</title>
+    <title>AI Medical Assistant</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #f1f5f9;
+        padding: 30px;
+      }
+      #chatbox {
+        width: 100%;
+        max-width: 700px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      .message {
+        margin-bottom: 15px;
+      }
+      .user {
+        text-align: right;
+        color: #2563eb;
+      }
+      .bot {
+        text-align: left;
+        color: #16a34a;
+      }
+      #input-area {
+        display: flex;
+        margin-top: 20px;
+      }
+      #input-area input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+      #input-area button {
+        padding: 10px 20px;
+        margin-left: 10px;
+        background-color: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      #input-area button:hover {
+        background-color: #1e40af;
+      }
+      .mode-buttons {
+        text-align: center;
+        margin-bottom: 15px;
+      }
+      .mode-btn {
+        margin: 0 10px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        background-color: #e5e7eb;
+        font-weight: bold;
+      }
+      .mode-btn.selected {
+        background-color: #2563eb;
+        color: white;
+      }
+    </style>
   </head>
   <body>
-    <h1>hey</h1>
+    <div id="chatbox">
+      <h2>👩‍⚕️ Lia - Your AI Medical Assistant</h2>
+
+      <div class="mode-buttons">
+        <button class="mode-btn selected" onclick="setMode('price')">
+          💊 Medicine Price
+        </button>
+        <button class="mode-btn" onclick="setMode('gemini')">🧠 Ask AI</button>
+      </div>
+
+      <div id="messages">
+        <div class="message bot">
+          Hello! I’m your AI medical assistant. Choose a mode and ask your
+          question!
+        </div>
+      </div>
+
+      <div id="input-area">
+        <input type="text" id="userInput" placeholder="Type your message..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <script>
+      let selectedMode = "price";
+
+      function setMode(mode) {
+        selectedMode = mode;
+        document
+          .querySelectorAll(".mode-btn")
+          .forEach((btn) => btn.classList.remove("selected"));
+        document
+          .querySelector(`.mode-btn[onclick="setMode('${mode}')"]`)
+          .classList.add("selected");
+      }
+
+      function appendMessage(text, sender) {
+        const msg = document.createElement("div");
+        msg.className = "message " + sender;
+        msg.innerText = text;
+        document.getElementById("messages").appendChild(msg);
+        msg.scrollIntoView({ behavior: "smooth" });
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendMessage(text, "user");
+        input.value = "";
+
+        try {
+          const res = await fetch("/chatbot/message", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: text, mode: selectedMode }),
+          });
+
+          const data = await res.json();
+          appendMessage(
+            data.reply || "Sorry, I couldn't understand that.",
+            "bot"
+          );
+        } catch (err) {
+          appendMessage(
+            "Error contacting AI assistant. Please try again later.",
+            "bot"
+          );
+        }
+      }
+
+      // Send on Enter
+      document
+        .getElementById("userInput")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") sendMessage();
+        });
+    </script>
   </body>
 </html>

@@ -12,7 +12,7 @@ import random
 
 
 app = Flask(__name__)
-genai.configure(api_key=os.getenv("AIzaSyAD3ErnFohSPwhSJsNOjwg3JuuNZFBmtG8"))
+genai.configure(api_key="AIzaSyAD3ErnFohSPwhSJsNOjwg3JuuNZFBmtG8")
 # @app.before_request
 # def ensure_language_selected():
 #     if request.endpoint not in ['set_language', 'static', 'home', 'index']:
@@ -36,16 +36,79 @@ CSV_FILE = "products.csv"
 
 
 products = []
+
+def extract_drugs_with_mg(text):
+    # Extracts all drug + mg pairs like ("paracetamol", 500)
+    matches = re.findall(r"([a-zA-Z\s]+)\s*(\d+)\s*mg", text.lower())
+    return [(preprocess(name), int(mg)) for name, mg in matches]
+
 def find_medicine_price(query):
-    for item in products:
-        if item["generic name"].lower() in query.lower():
-            return f"The price of {item['generic name']} ({item['unit size']}) is ₹{item['MRP']} as per Janaushadhi."
+    query = query.lower()
+    query_drugs = [d.strip() for d in re.split(r' and |,', query)]
+    query_info = []
+
+    for drug in query_drugs:
+        name = preprocess(drug)
+        mg = extract_mg(drug)
+        if name:
+            query_info.append((name, mg))
+
+    best_match = None
+    highest_score = 0
+
+    with open(CSV_FILE, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            product_name = row.get("Generic Name", "").lower()
+            unit = row.get("Unit Size", "").lower()
+            full_text = f"{product_name} {unit}"
+
+            entry_drugs = [d.strip() for d in re.split(r' and |,', full_text)]
+            entry_info = []
+            for d in entry_drugs:
+                entry_name = preprocess(d)
+                entry_mg = extract_mg(d)
+                if entry_name:
+                    entry_info.append((entry_name, entry_mg))
+
+            # ❌ Skip if more components than asked
+            if len(entry_info) != len(query_info):
+                continue
+
+            matched_all = True
+            total_score = 0
+
+            for q_name, q_mg in query_info:
+                found_match = False
+                for e_name, e_mg in entry_info:
+                    score = fuzz.token_set_ratio(q_name, e_name)
+                    if score >= 70 and (q_mg is None or (e_mg is not None and q_mg == e_mg)):
+                        total_score += score
+                        found_match = True
+                        break
+                if not found_match:
+                    matched_all = False
+                    break
+
+            if matched_all and total_score > highest_score:
+                highest_score = total_score
+                best_match = row
+
+    if best_match:
+        return (
+            f"The price of {best_match['Generic Name']} "
+            f"({best_match['Unit Size']}) is ₹{best_match['MRP']} as per Janaushadhi."
+        )
+
     return None
+
+
 
 with open('products.csv', newline='', encoding='utf-8') as csvfile:
     reader = csv.DictReader(csvfile)
     for row in reader:
         products.append(row)
+
 
 def detect_column_indices(lines):
     for i, line in enumerate(lines[:3]):
@@ -181,32 +244,49 @@ def init_db():
 @app.route('/')
 def home():
     return render_template("index.html")
-@app.route("/chatbot", methods=["POST","GET"])
+@app.route("/chatbot/message", methods=["POST"])
 def chatbot():
-    user_input = request.json.get("message", "")
+    data = request.get_json()
+    user_input = data.get("message", "")
+    mode = data.get("mode", "price")
+
     print("User input:", user_input)
+    print("Selected mode:", mode)
 
-    price_response = find_medicine_price(user_input)
-    print("Medicine Match:", price_response)  # Add this
+    if mode == "price":
+        price_response = find_medicine_price(user_input)
+        print("Medicine Match:", price_response)
+        if price_response:
+            return jsonify({"reply": price_response})
+        return jsonify({"reply": "Sorry, medicine not found in Janaushadhi database."})
 
-    if price_response:
-        return jsonify({"reply": price_response})
+    elif mode == "gemini":
+        print("Calling Gemini...")
+        try:
+            model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-latest")
+            chat = model.start_chat()
+            response = chat.send_message(user_input)
+            return jsonify({"reply": response.text})
+        except Exception as e:
+            print("Gemini error:", e)
+            return jsonify({"reply": "Gemini failed: " + str(e)})
+
+    return jsonify({"reply": "Invalid mode selected."})
 
 
-    print("Calling Gemini...")
-    try:
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(user_input)
-        print("Gemini replied:", response.text)
-        return jsonify({"reply": response.text})
-    except Exception as e:
-        print("Gemini error:", e)
-        return jsonify({"reply": "Gemini failed: " + str(e)})
-@app.route("/chatbot", methods=["GET"])
+@app.route("/chatbot")
 def chatbot_page():
     if "user_id" not in session:
         return redirect("/login")
-    return render_template("chatbot.html", lang=session.get("language", "english"), user=session["user"])
+
+    with get_db_connection() as conn:
+        user = conn.execute(
+            "SELECT username, email, first_name, last_name FROM users WHERE id = ?",
+            (session["user_id"],)
+        ).fetchone()
+
+    return render_template("chatbot.html", lang=session.get("language", "english"), user=user)
+
 
 
 
