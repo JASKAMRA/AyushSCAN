@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="/static/styles/dashboard.css" />
   </head>
   <body>
-    <form action="/set_language" method="POST" style="position: absolute; top: 40px; left: 1300px;">
+    <form action="/set_language" method="POST" style="position: absolute; top: 40px; left: 1400px;">
   <select name="language" onchange="this.form.submit()" style="padding: 5px; border-radius: 5px;">
     <option value="english" {% if lang == 'english' %}selected{% endif %}>English</option>
     <option value="hindi" {% if lang == 'hindi' %}selected{% endif %}>हिन्दी</option>
@@ -52,26 +52,21 @@
                 <span class="nav-text">{% if lang == 'hindi' %}प्रोफ़ाइल{% else %}Profile{% endif %}</span>
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" data-section="chatbot">
-                <span class="nav-icon">🤖</span>
-                <span class="nav-text">{% if lang == 'hindi' %}एआई सहायक{% else %}AI Assistant{% endif %}</span>
-              </a>
-            </li>
+           
             <li class="nav-item">
               <a class="nav-link" data-section="history">
                 <span class="nav-icon">📋</span>
                 <span class="nav-text">{% if lang == 'hindi' %}स्कैन इतिहास{% else %}Scan History{% endif %}</span>
               </a>
             </li>
-            {#
+            
             <li class="nav-item">
-              <a class="nav-link" data-section="settings">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-text">Settings</span>
+              <a class="nav-link" data-section="Hospitals Nearby">
+                <span class="nav-icon">📌</span>
+                <span class="nav-text">{% if lang == 'hindi' %}नज़दीकी अस्पताल{% else %}Hospitals Nearby{% endif %}</span>
               </a>
             </li>
-            #}
+            
           </ul>
         </nav>
       </aside>
@@ -95,7 +90,13 @@
             </div>
           </div>
         </header>
-
+        <section class="content-section" id="Hospitals Nearby">
+  <div class="hospital-container" style="padding: 2rem;">
+    <h2>{% if lang == 'hindi' %}अपने नज़दीकी अस्पताल खोजें{% else %}Find Nearby Hospitals{% endif %}</h2>
+    <p id="locationStatus">{% if lang == 'hindi' %}स्थान प्राप्त किया जा रहा है...{% else %}Getting location...{% endif %}</p>
+    <ul id="hospitalList"></ul>
+  </div>
+</section>
         <section class="content-section active" id="dashboard">
           <div class="dashboard-grid">
             <div class="dashboard-card" onclick="showSection('scanner')">
@@ -112,7 +113,7 @@
               </div>
             </div>
 
-            <div class="dashboard-card" onclick="showSection('chatbot')">
+            <div class="dashboard-card" onclick="window.location.href='{{ url_for('chatbot_page') }}'">
               <div class="card-header">
                 <div class="card-icon">🤖</div>
                 <div class="card-title">{% if lang == 'hindi' %}एआई सहायक{% else %}AI Assistant{% endif %}</div>
@@ -122,6 +123,22 @@
               </div>
               <div class="card-stats">
                 <div class="stat-label">{% if lang == 'hindi' %}नमस्ते, मैं लिया आपकी मदद करने के लिए खुश हूँ😄{% else %}Hey,I am Lia happy to help😄{% endif %}</div>
+                {#
+                <div class="stat-value">12</div>
+                #}
+              </div>
+            </div>
+
+               <div class="dashboard-card" onclick="showSection('Hospitals Nearby')">
+              <div class="card-header">
+                <div class="card-icon">📌</div>
+                <div class="card-title">{% if lang == 'hindi' %}नज़दीकी अस्पताल{% else %}Hospitals Nearby{% endif %}</div>
+              </div>
+              <div class="card-description">
+                {% if lang == 'hindi' %}अपने स्थान के पास के अस्पताल खोजें{% else %}Find hospitals nearby your location{% endif %}
+              </div>
+              <div class="card-stats">
+                <div class="stat-label">{% if lang == 'hindi' %}खोज शुरू करें🗺️{% else %}Start finding🗺️{% endif %}</div>
                 {#
                 <div class="stat-value">12</div>
                 #}
@@ -448,26 +465,7 @@
           </div>
         </section>
 
-        <div id="deleteAccountModal" class="modal">
-          <div class="modal-content">
-            <span class="close" onclick="closeModal('deleteAccountModal')"
-              >&times;</span
-            >
-            <h3>{% if lang == 'hindi' %}खाता हटाने की पुष्टि करें{% else %}Confirm Account Deletion{% endif %}</h3>
-            <form id="deleteAccountForm">
-              <input
-                type="password"
-                name="delete_password"
-                placeholder="{% if lang == 'hindi' %}पुष्टि करने के लिए पासवर्ड दर्ज करें{% else %}Enter Password to Confirm{% endif %}"
-                required
-                class="form-input"
-              />
-              <button type="submit" class="btn-modal danger">
-                {% if lang == 'hindi' %}खाता मिटाएं{% else %}Delete Account{% endif %}
-              </button>
-            </form>
-          </div>
-        </div>
+      
 
         <div id="logoutModal" class="modal">
           <div class="modal-content">
@@ -624,5 +622,6 @@
       </div>
       <script src="/static/scripts/dashboard.js"></script>
     </div>
+    
   </body>
 </html>

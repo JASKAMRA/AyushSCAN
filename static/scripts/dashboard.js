@@ -17,9 +17,6 @@ document.addEventListener("click", function (e) {
     document.getElementById("userDropdown").style.display = "none";
   }
 });
-function openModal(id) {
-  document.getElementById(id).style.display = "block";
-}
 function closeModal(id) {
   document.getElementById(id).style.display = "none";
 }
@@ -258,3 +255,54 @@ function enableEditing() {
   // Scroll to top of form
   form.scrollIntoView({ behavior: "smooth" });
 }
+
+// ===== HOSPITALS NEARBY: OpenStreetMap Overpass Integration =====
+document.addEventListener("DOMContentLoaded", () => {
+  const hospitalSection = document.getElementById("Hospitals Nearby");
+  if (hospitalSection) {
+    const locationStatus = document.getElementById("locationStatus");
+    const hospitalList = document.getElementById("hospitalList");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        locationStatus.textContent = `📍 Location: ${latitude.toFixed(
+          3
+        )}, ${longitude.toFixed(3)}`;
+
+        const query = `
+          [out:json];
+          (
+            node["amenity"="hospital"](around:5000,${latitude},${longitude});
+          );
+          out body;
+        `;
+
+        try {
+          const res = await fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: query,
+          });
+          const data = await res.json();
+          const hospitals = data.elements;
+
+          if (hospitals.length === 0) {
+            hospitalList.innerHTML = `<li>No hospitals found nearby.</li>`;
+          } else {
+            hospitalList.innerHTML = hospitals
+              .map((h) => `<li>🏥 ${h.tags.name || "Unnamed Hospital"}</li>`)
+              .join("");
+          }
+        } catch (err) {
+          hospitalList.innerHTML = `<li>Error fetching hospital data.</li>`;
+          console.error("Overpass fetch error:", err);
+        }
+      },
+      (err) => {
+        locationStatus.textContent =
+          "⚠️ Location access denied. Cannot fetch nearby hospitals.";
+        console.warn("Geolocation error:", err);
+      }
+    );
+  }
+});

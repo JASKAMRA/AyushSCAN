@@ -3,6 +3,7 @@ import sqlite3
 import pytesseract
 from PIL import Image, UnidentifiedImageError
 import os
+import google.generativeai as genai
 import re
 import csv
 from difflib import SequenceMatcher
@@ -11,11 +12,12 @@ import random
 
 
 app = Flask(__name__)
-@app.before_request
-def ensure_language_selected():
-    if request.endpoint not in ['set_language', 'static', 'home', 'index']:
-        if 'language' not in session:
-            return redirect(url_for('index'))
+genai.configure(api_key=os.getenv("AIzaSyAD3ErnFohSPwhSJsNOjwg3JuuNZFBmtG8"))
+# @app.before_request
+# def ensure_language_selected():
+#     if request.endpoint not in ['set_language', 'static', 'home', 'index']:
+#         if 'language' not in session:
+#             return redirect(url_for('index'))
 @app.context_processor
 def inject_lang():
     return {'lang': session.get('language', 'english')}
@@ -31,7 +33,19 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 UPLOAD_FOLDER = "uploads"
 CSV_FILE = "products.csv"
 
-import re
+
+
+products = []
+def find_medicine_price(query):
+    for item in products:
+        if item["generic name"].lower() in query.lower():
+            return f"The price of {item['generic name']} ({item['unit size']}) is ₹{item['MRP']} as per Janaushadhi."
+    return None
+
+with open('products.csv', newline='', encoding='utf-8') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        products.append(row)
 
 def detect_column_indices(lines):
     for i, line in enumerate(lines[:3]):
@@ -167,6 +181,34 @@ def init_db():
 @app.route('/')
 def home():
     return render_template("index.html")
+@app.route("/chatbot", methods=["POST","GET"])
+def chatbot():
+    user_input = request.json.get("message", "")
+    print("User input:", user_input)
+
+    price_response = find_medicine_price(user_input)
+    print("Medicine Match:", price_response)  # Add this
+
+    if price_response:
+        return jsonify({"reply": price_response})
+
+
+    print("Calling Gemini...")
+    try:
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(user_input)
+        print("Gemini replied:", response.text)
+        return jsonify({"reply": response.text})
+    except Exception as e:
+        print("Gemini error:", e)
+        return jsonify({"reply": "Gemini failed: " + str(e)})
+@app.route("/chatbot", methods=["GET"])
+def chatbot_page():
+    if "user_id" not in session:
+        return redirect("/login")
+    return render_template("chatbot.html", lang=session.get("language", "english"), user=session["user"])
+
+
 
 @app.route('/signup', methods=["GET", "POST"])
 def signup():
