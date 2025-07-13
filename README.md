@@ -14,11 +14,12 @@
 ## 🎥 Demo Video
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID">
-    <img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg" alt="AyushScan Demo" width="60%" />
+  <a href="https://youtu.be/pqgdbEKCr8Y" target="_blank">
+    <img src="https://img.youtube.com/vi/pqgdbEKCr8Y/0.jpg" alt="AyushScan Demo" width="60%" />
   </a><br>
   <i>Click the image to view the demo (Unlisted)</i>
 </p>
+
 
 ---
 
@@ -54,7 +55,8 @@
 
 ## Project Structure
 
-<img width="185" height="154" alt="image" src="https://github.com/user-attachments/assets/26333d4e-56a4-47ff-bca6-68f4a7baa804" />
+<img width="213" height="213" alt="image" src="https://github.com/user-attachments/assets/9f9932eb-12eb-4b5b-bbc2-e050b904ce81" />
+
 
 
 ---
@@ -85,5 +87,36 @@ python app.py
 
 # Open in browser
 http://127.0.0.1:5000
+```
+
+## 🔐 Environment Variables (`.env`)
+
+To run **AyushScan** locally, you need to provide your **Gemini API key** using a `.env` file.
+
+### 📄 Step-by-step:
+
+1. **Create a file named** `.env` at the **root** of the project (same level as `app.py`).
+
+2. Add the following line inside it:
+
+   ```.env
+   GOOGLE_API_KEY=your_gemini_api_key_here
+   ```
+
+3. You can get your **Google Gemini API key** from:
+
+   👉 [https://makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
+
+4. The key is automatically loaded using `python-dotenv` which is already included in `requirements.txt`.
+
+---
+
+### ⚠️ Important Notes:
+
+* Your `.env` file is **excluded from version control** using `.gitignore`.
+* **Never upload `.env` to GitHub** — keep your keys safe!
+
+---
+
 
 
