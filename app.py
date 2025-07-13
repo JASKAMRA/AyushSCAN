@@ -9,10 +9,14 @@ import csv
 from difflib import SequenceMatcher
 from rapidfuzz import fuzz
 import random
+from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 
 app = Flask(__name__)
-genai.configure(api_key="AIzaSyAD3ErnFohSPwhSJsNOjwg3JuuNZFBmtG8")
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # @app.before_request
 # def ensure_language_selected():
 #     if request.endpoint not in ['set_language', 'static', 'home', 'index']:
@@ -318,9 +322,9 @@ def signup():
             return jsonify(success=False, message=f"Database error: {str(e)}")
 
     return render_template("signup.html")
-@app.route('/')
-def index():
-    return render_template('index.html')
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
 @app.route('/contact', methods=['POST'])
 def contact():
     name = request.form['name']
