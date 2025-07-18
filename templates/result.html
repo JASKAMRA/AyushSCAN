@@ -36,6 +36,28 @@
       </tbody>
     </table>
 
+    <!-- New Section: Detected Illness -->
+    {% if illness %}
+    <div class="illness-section">
+      <h3>
+        {% if lang == 'hindi' %}🧠 पहचानी गई बीमारी:{% else %}🧠 Detected
+        Illness:{% endif %}
+      </h3>
+      <p>{{ illness }}</p>
+    </div>
+    {% endif %}
+
+    <!-- New Section: Ayushman Bharat Eligibility -->
+    {% if scheme_info %}
+    <div class="scheme-section">
+      <h3>
+        {% if lang == 'hindi' %}🏥 आयुष्मान भारत योजना:{% else %}🏥 Ayushman
+        Bharat Scheme:{% endif %}
+      </h3>
+      <p>{{ covered }}</p>
+    </div>
+    {% endif %}
+
     <a href="/dashboard" class="btn-back">
       ⬅️ {% if lang == 'hindi' %}डैशबोर्ड पर वापस जाएँ{% else %}Back to
       Dashboard{% endif %}
@@ -65,11 +87,11 @@
           const row = document.createElement("tr");
           row.classList.add("overbilled");
           row.innerHTML = `
-            <td>${item.toUpperCase()}</td>
-            <td>₹${f.expected}</td>
-            <td>₹${f.billed}</td>
-            <td>${statusText}</td>
-          `;
+          <td>${item.toUpperCase()}</td>
+          <td>₹${f.expected}</td>
+          <td>₹${f.billed}</td>
+          <td>${statusText}</td>
+        `;
           tbody.appendChild(row);
         }
       }

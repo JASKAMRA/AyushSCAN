@@ -17,6 +17,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 # @app.before_request
 # def ensure_language_selected():
 #     if request.endpoint not in ['set_language', 'static', 'home', 'index']:
@@ -40,6 +41,20 @@ CSV_FILE = "products.csv"
 
 
 products = []
+
+import re
+
+import re
+
+def extract_illness_from_response(text):
+    # Extract text between "**1. Possible Illnesses or Conditions:**" and "**2."
+    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    print(paragraphs)
+    if paragraphs:
+        return paragraphs[0]
+    return "N/A"
+
+
 
 def extract_drugs_with_mg(text):
     # Extracts all drug + mg pairs like ("paracetamol", 500)
@@ -322,9 +337,9 @@ def signup():
             return jsonify(success=False, message=f"Database error: {str(e)}")
 
     return render_template("signup.html")
-# @app.route('/')
-# def index():
-#     return render_template('index.html')
+@app.route('/')
+def index():
+    return render_template('index.html')
 @app.route('/contact', methods=['POST'])
 def contact():
     name = request.form['name']
@@ -512,7 +527,6 @@ def scan():
 
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    # Make filename unique to avoid overwrites
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
     file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -532,8 +546,7 @@ def scan():
         print("🔍 ANALYSIS:")
         for i, line in enumerate(lines):
             if i <= header_idx:
-                continue  # Skip header line and above
-
+                continue
             clean_line = preprocess(line.strip())
             if not clean_line:
                 continue
@@ -596,24 +609,43 @@ def scan():
 
         print("\n✅ Scan Complete.\n")
 
+        # ✅ GEMINI PRO ANALYSIS
+        prompt = (
+            "I have scanned a patient's medical bill. Here is the OCR text:\n\n"
+            f"{text}\n\n"
+            "Based on this, tell me in 2 paragraphs, both having paras having each answers:\n"
+            "1. What illnesses or conditions this person might be treated for?\n"
+            "2. Are these medicines/tests typically covered under Ayushman Bharat scheme?\n"
+        )
+
+        model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
+        gemini_response = model.generate_content(prompt)
+        gemini_analysis = gemini_response.text
+        detected_illness = extract_illness_from_response(gemini_analysis)
+        ayushman_prompt = f"Is '{detected_illness}' covered under the Ayushman Bharat Yojana scheme? Answer in the format ilness:YES/NO and mention all in new line after each if doubt on not only one."
+        ayushman_response = model.generate_content(ayushman_prompt)
+        covered = ayushman_response.text.strip()
+
+        print(gemini_analysis)
+
         # ✅ Save to DB
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(""" 
-                INSERT INTO scans (user_id, filename, text, flagged)
-                VALUES (?, ?, ?, ?)
-            """, (session["user_id"], filename, text, json.dumps(overbilled_items)))
+                INSERT INTO scans (user_id, filename, text, flagged, illness, covered)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (session["user_id"], filename, text, json.dumps(overbilled_items), detected_illness, covered))
             conn.commit()
-            scan_id = cursor.lastrowid  # ✅ Now this will return the correct scan ID
+            scan_id = cursor.lastrowid
 
         return jsonify(
             success=True,
             scan_id=scan_id,
-            message="⚠️ Overbilling detected in scanned bill." if overbilled_items else "✅ No overbilling detected.",
+            message="⚠️ Overbilling detected." if overbilled_items else "✅ No overbilling.",
             flagged=overbilled_items,
-            text=text
+            text=text,
+            gemini_analysis=gemini_analysis
         )
-        
 
     except UnidentifiedImageError:
         return jsonify(success=False, message="Invalid or corrupted image file."), 400
@@ -623,24 +655,41 @@ def scan():
         if os.path.exists(file_path):
             os.remove(file_path)
 
+
+    
+
 @app.route("/result/<int:scan_id>")
-def results(scan_id):
+def result(scan_id):
     if "user_id" not in session:
         return redirect("/login")
 
-    with get_db_connection() as conn:
-        scan = conn.execute(
-            "SELECT * FROM scans WHERE id = ? AND user_id = ?",
-            (scan_id, session["user_id"])
-        ).fetchone()
+    conn = sqlite3.connect("users.db")  # ✅ using the correct DB
+    cursor = conn.cursor()
+    cursor.execute("SELECT text, flagged, illness, covered FROM scans WHERE id = ? AND user_id = ?", (scan_id, session["user_id"]))
+    row = cursor.fetchone()
+    conn.close()
 
-        if not scan:
-            return "Scan not found or unauthorized access", 404
+    if not row:
+        flash("Scan not found.", "danger")
+        return redirect("/dashboard")
 
-        flagged = json.loads(scan["flagged"] or "{}")
-        non_flagged = {}  # You can populate this later if needed
+    text, flagged, illness, covered = row
+    try:
+        flagged_data = json.loads(flagged) if flagged else {}
+    except json.JSONDecodeError:
+        flagged_data = {}
 
-    return render_template("result.html", flagged=flagged, non_flagged=non_flagged)
+    has_scheme = bool(covered and covered != "N/A")
+
+    return render_template(
+        "result.html",
+        lang=session.get("language", "english"),
+        flagged=flagged_data,
+        illness=illness or "N/A",
+        covered=covered or "N/A",
+        scheme_info=has_scheme
+    )
+
 
 
 # =================== Main ===================
