@@ -531,7 +531,7 @@
                 padding: 3rem;
               "
             >
-              <div style="font-size: 3rem; margin-bottom: 1rem">📋</div>
+              {# <div style="font-size: 3rem; margin-bottom: 1rem">📋</div> #}
               {% if scans and scans|length > 0 %}
               <ul style="list-style: none; padding: 0">
                 {% for scan in scans %}
@@ -589,7 +589,7 @@
                 </button>
               </div>
               {% endif %}
-
+{# 
               <button
                 onclick="showSection('scanner')"
                 style="
@@ -603,7 +603,7 @@
                 "
               >
                 {% if lang == 'hindi' %}स्कैनिंग शुरू करें{% else %}Start Scanning{% endif %}
-              </button>
+              </button> #}
             </div>
           </div>
         </section>
