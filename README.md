@@ -1,6 +1,6 @@
 <h1 align="center">📊 AyushScan</h1>
 
-<p align="center"><i>AI-powered medical bill analyzer and health assistant for Bharat 🇮🇳</i></p>
+<p align="center"><i>AI-powered medical bill analyzer and health assistant for Bharat</i></p>
 <p align="center">("This is around 60-70% working right now")</p>
 
 <p align="center">
