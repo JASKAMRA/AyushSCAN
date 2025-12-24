@@ -45,10 +45,10 @@
 
 | Planned Feature | Current Status | Completion Target |
 |----------------|----------------|-------------------|
-| 🔒 Password Hashing | ❌ Not yet implemented | Will be added before hackathon submission |
-| 🗺️ Google Maps API for Hospitals | ❌ Not used | Post-hackathon |
+| 🔒 Password Hashing | ❌ Not yet implemented | Will be added |
+| 🗺️ Google Maps API for Hospitals | ❌ Not used | Planned for future |
 | ✅ Ayushman Bharat Scheme Filter | ⚠️ Planned | In-progress |
-| 🎤 Voice Chat in Chatbot | ⚠️ Planned | Before final submission |
+| 🎤 Voice Chat in Chatbot | ⚠️ Planned | Planned for future |
 | 📧 OTP via Email | ✅ Functional (console log only) | Email delivery can be added later |
 
 ---
