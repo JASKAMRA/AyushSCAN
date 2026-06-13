@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const passwordToggle = document.getElementById("passwordToggle");
   const toggleIcon = document.getElementById("toggleIcon");
   const confirmPasswordToggle = document.getElementById(
-    "confirmPasswordToggle"
+    "confirmPasswordToggle",
   );
   const confirmToggleIcon = document.getElementById("confirmToggleIcon");
   const firstNameInput = document.getElementById("firstName");
@@ -22,10 +22,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   passwordToggle.addEventListener("click", () =>
-    togglePasswordVisibility(passwordInput, toggleIcon)
+    togglePasswordVisibility(passwordInput, toggleIcon),
   );
   confirmPasswordToggle.addEventListener("click", () =>
-    togglePasswordVisibility(confirmPasswordInput, confirmToggleIcon)
+    togglePasswordVisibility(confirmPasswordInput, confirmToggleIcon),
   );
 
   function validateUsername(username) {
@@ -66,6 +66,11 @@ document.addEventListener("DOMContentLoaded", function () {
     clearError(emailInput);
     clearError(passwordInput);
     clearError(confirmPasswordInput);
+    clearError(firstNameInput);
+    clearError(lastNameInput);
+
+    let isValid = true;
+
     if (!firstNameInput.value.trim()) {
       showError(firstNameInput, "First name is required");
       isValid = false;
@@ -74,8 +79,6 @@ document.addEventListener("DOMContentLoaded", function () {
       showError(lastNameInput, "Last name is required");
       isValid = false;
     }
-
-    let isValid = true;
 
     if (!validateUsername(usernameInput.value)) {
       showError(usernameInput, "Username must be at least 3 characters");
@@ -90,7 +93,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!validatePassword(passwordInput.value)) {
       showError(
         passwordInput,
-        "Password needs 6+ chars, 1 uppercase, 1 lowercase, 1 number"
+        "Password needs 6+ chars, 1 uppercase, 1 lowercase, 1 number",
       );
       isValid = false;
     }

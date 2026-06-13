@@ -1,9 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="{{ lang }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AyushScan - Dashboard</title>
+    <title>AyushScan - {{ tr.dashboard }}</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -11,62 +11,59 @@
     <link rel="stylesheet" href="/static/styles/dashboard.css" />
   </head>
   <body>
-    <form action="/set_language" method="POST" style="position: absolute; top: 40px; left: 1300px;">
-  <select name="language" onchange="this.form.submit()" style="padding: 5px; border-radius: 5px;">
-    <option value="english" {% if lang == 'english' %}selected{% endif %}>English</option>
-    <option value="hindi" {% if lang == 'hindi' %}selected{% endif %}>हिन्दी</option>
-  </select>
-</form>
-
     <div class="dashboard">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-          {# <div class="sidebar-logo-wrapper">
-            <img src="/static/images/logo.png" alt="AyushScan Logo" class="sidebar-logo-image" />
-          <div>
-          <div class="sidebar-logo">AyushScan</div> #}
-          <div class="sidebar-logo" style="display: flex;margin-right:200px; gap:5px;">
-            <img src="/static/images/LOGO.png" alt="Logo" style="height: 34px;background-color:#f1f1f1;" />
+          <div
+            class="sidebar-logo"
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            "
+          >
+            <img
+              src="/static/images/LOGO.png"
+              alt="AyushScan"
+              style="height: 34px; background: #f1f1f1"
+            />
             AyushScan
           </div>
-
-          <div class="sidebar-subtitle">{% if lang == 'hindi' %}भारत के लिए अनुकूलित{% else %}Tailored for Bharat{% endif %}</div>
+          <div class="sidebar-subtitle">Transparent healthcare billing</div>
         </div>
         <nav>
           <ul class="sidebar-nav">
             <li class="nav-item">
-              <a class="nav-link active" data-section="dashboard">
-                <span class="nav-icon">🏠</span>
-                <span class="nav-text">{% if lang == 'hindi' %}डैशबोर्ड{% else %}Dashboard{% endif %}</span>
-              </a>
+              <a class="nav-link active" data-section="dashboard"
+                ><span class="nav-icon">D</span
+                ><span class="nav-text">{{ tr.dashboard }}</span></a
+              >
             </li>
             <li class="nav-item">
-              <a class="nav-link" data-section="scanner">
-                <span class="nav-icon">📱</span>
-                <span class="nav-text">{% if lang == 'hindi' %}स्कैनर{% else %}Scanner{% endif %}</span>
-              </a>
+              <a class="nav-link" data-section="scanner"
+                ><span class="nav-icon">S</span
+                ><span class="nav-text">{{ tr.scanner }}</span></a
+              >
             </li>
             <li class="nav-item">
-              <a class="nav-link" data-section="profile">
-                <span class="nav-icon">👤</span>
-                <span class="nav-text">{% if lang == 'hindi' %}प्रोफ़ाइल{% else %}Profile{% endif %}</span>
-              </a>
+              <a class="nav-link" data-section="hospitals"
+                ><span class="nav-icon">H</span
+                ><span class="nav-text">{{ tr.hospitals }}</span></a
+              >
             </li>
-           
             <li class="nav-item">
-              <a class="nav-link" data-section="history">
-                <span class="nav-icon">📋</span>
-                <span class="nav-text">{% if lang == 'hindi' %}स्कैन इतिहास{% else %}Scan History{% endif %}</span>
-              </a>
+              <a class="nav-link" data-section="history"
+                ><span class="nav-icon">R</span
+                ><span class="nav-text">{{ tr.history }}</span></a
+              >
             </li>
-            
             <li class="nav-item">
-              <a class="nav-link" data-section="Hospitals Nearby">
-                <span class="nav-icon">📌</span>
-                <span class="nav-text">{% if lang == 'hindi' %}नज़दीकी अस्पताल{% else %}Hospitals Nearby{% endif %}</span>
-              </a>
+              <a class="nav-link" data-section="profile"
+                ><span class="nav-icon">P</span
+                ><span class="nav-text">{{ tr.profile }}</span></a
+              >
             </li>
-            
           </ul>
         </nav>
       </aside>
@@ -76,102 +73,127 @@
       <main class="main-content" id="mainContent">
         <header class="header">
           <div class="header-left">
-            <button class="menu-toggle" id="menuToggle">☰</button>
-            <h1 class="page-title" id="pageTitle">{% if lang == 'hindi' %}डैशबोर्ड{% else %}Dashboard{% endif %}</h1>
+            <button class="menu-toggle" id="menuToggle" type="button">
+              Menu
+            </button>
+            <h1 class="page-title" id="pageTitle">{{ tr.dashboard }}</h1>
           </div>
           <div class="header-right">
+            <form action="/set_language" method="POST">
+              <!-- prettier-ignore -->
+              <select
+                name="language"
+                onchange="this.form.submit()"
+                class="form-input"
+                aria-label="Language"
+              >
+                <option
+                  value="english"
+                  {%
+                  if
+                  lang=="english"
+                  %}selected{%
+                  endif
+                  %}
+                >
+                  English
+                </option>
+
+                <option
+                  value="hindi"
+                  {%
+                  if
+                  lang=="hindi"
+                  %}selected{%
+                  endif
+                  %}
+                >
+                  हिन्दी
+                </option>
+
+                <option
+                  value="hinglish"
+                  {%
+                  if
+                  lang=="hinglish"
+                  %}selected{%
+                  endif
+                  %}
+                >
+                  Hinglish
+                </option>
+              </select>
+            </form>
             <div class="user-profile" onclick="showSection('profile')">
               <div class="user-avatar">{{ user.first_name[0]|upper }}</div>
               <div class="user-info">
                 <div class="user-name">
-                  {{ user['first_name'] }} {{ user['last_name'] }}
+                  {{ user.first_name }} {{ user.last_name }}
                 </div>
               </div>
             </div>
           </div>
         </header>
-        <section class="content-section" id="Hospitals Nearby">
-  <div class="hospital-container" style="padding: 2rem;">
-    <h2>{% if lang == 'hindi' %}अपने नज़दीकी अस्पताल खोजें{% else %}Find Nearby Hospitals{% endif %}</h2>
-    <p id="locationStatus">{% if lang == 'hindi' %}स्थान प्राप्त किया जा रहा है...{% else %}Getting location...{% endif %}</p>
-    <ul id="hospitalList"></ul>
-  </div>
-</section>
+
         <section class="content-section active" id="dashboard">
           <div class="dashboard-grid">
             <div class="dashboard-card" onclick="showSection('scanner')">
               <div class="card-header">
-                <div class="card-icon">📱</div>
-                <div class="card-title">{% if lang == 'hindi' %}स्कैनर{% else %}Scanner{% endif %}</div>
+                <div class="card-icon">🗒️</div>
+                <div class="card-title">{{ tr.total_scans }}</div>
               </div>
               <div class="card-description">
-                {% if lang == 'hindi' %}एआई-पावर्ड ओसीआर तकनीक से अपने मेडिकल बिल अपलोड और स्कैन करें{% else %}Upload and scan your medical bills with AI-powered OCR technology{% endif %}
+                Upload medical bills and compare detected charges with reference
+                prices.
               </div>
               <div class="card-stats">
-                <div class="stat-label">{% if lang == 'hindi' %}कुल स्कैन{% else %}Total Scans{% endif %}</div>
-                <div class="stat-value">{{ scans|length }}</div>
+                <span class="stat-label">{{ tr.scanner }}</span
+                ><span class="stat-value">{{ metrics.total_scans }}</span>
               </div>
             </div>
-
-            <div class="dashboard-card" onclick="window.location.href='{{ url_for('chatbot_page') }}'">
+            <a
+              href="{{ url_for('chatbot_page') }}"
+              class="dashboard-card"
+              style="text-decoration: none"
+            >
               <div class="card-header">
                 <div class="card-icon">🤖</div>
-                <div class="card-title">{% if lang == 'hindi' %}एआई सहायक{% else %}AI Assistant{% endif %}</div>
+                <div class="card-title">{{ tr.ai_assistant }}</div>
               </div>
               <div class="card-description">
-                {% if lang == 'hindi' %}अपने मेडिकल बिल और स्वास्थ्य सेवा के बारे में तुरंत मदद और जवाब पाएं{% else %}Get instant help and answers about your medical bills and healthcare{% endif %}
+                Ask billing, medicine price, hospital, and Ayushman Bharat
+                questions.
               </div>
               <div class="card-stats">
-                <div class="stat-label">{% if lang == 'hindi' %}नमस्ते, मैं लिया आपकी मदद करने के लिए खुश हूँ😄{% else %}Hey,I am Lia happy to help😄{% endif %}</div>
-                {#
-                <div class="stat-value">12</div>
-                #}
+                <span class="stat-label">{{ tr.chat_count }}</span
+                ><span class="stat-value">{{ metrics.chat_count }}</span>
               </div>
-            </div>
-
-               <div class="dashboard-card" onclick="showSection('Hospitals Nearby')">
+            </a>
+            <div class="dashboard-card" onclick="showSection('hospitals')">
               <div class="card-header">
-                <div class="card-icon">📌</div>
-                <div class="card-title">{% if lang == 'hindi' %}नज़दीकी अस्पताल{% else %}Hospitals Nearby{% endif %}</div>
+                <div class="card-icon">📍</div>
+                <div class="card-title">{{ tr.hospitals }}</div>
               </div>
               <div class="card-description">
-                {% if lang == 'hindi' %}अपने स्थान के पास के अस्पताल खोजें{% else %}Find hospitals nearby your location{% endif %}
+                Use browser location to find nearby hospitals and filter
+                possible Ayushman Bharat options.
               </div>
               <div class="card-stats">
-                <div class="stat-label">{% if lang == 'hindi' %}खोज शुरू करें🗺️{% else %}Start finding🗺️{% endif %}</div>
-                {#
-                <div class="stat-value">12</div>
-                #}
+                <span class="stat-label">Location based</span
+                ><span class="stat-value">Live</span>
               </div>
             </div>
-
             <div class="dashboard-card" onclick="showSection('history')">
               <div class="card-header">
-                <div class="card-icon">📋</div>
-                <div class="card-title">{% if lang == 'hindi' %}स्कैन इतिहास{% else %}Scan History{% endif %}</div>
+                <div class="card-icon">💰</div>
+                <div class="card-title">{{ tr.savings }}</div>
               </div>
               <div class="card-description">
-                {% if lang == 'hindi' %}अपने सभी पहले स्कैन किए गए मेडिकल दस्तावेज़ देखें और प्रबंधित करें{% else %}View and manage all your previously scanned medical documents{% endif %}
+                Estimated savings from detected overpricing across scan history.
               </div>
               <div class="card-stats">
-                <div class="stat-label">{% if lang == 'hindi' %}अपना इतिहास देखें{% else %}Review your History{% endif %}</div>
-                {#
-                <div class="stat-value">8</div>
-                #}
-              </div>
-            </div>
-
-            <div class="dashboard-card" onclick="showSection('profile')">
-              <div class="card-header">
-                <div class="card-icon">👤</div>
-                <div class="card-title">{% if lang == 'hindi' %}प्रोफ़ाइल{% else %}Profile{% endif %}</div>
-              </div>
-              <div class="card-description">
-                {% if lang == 'hindi' %}अपनी खाता सेटिंग्स और व्यक्तिगत जानकारी प्रबंधित करें{% else %}Manage your account settings and personal information{% endif %}
-              </div>
-              <div class="card-stats">
-                <div class="stat-label">{% if lang == 'hindi' %}खाता स्थिति{% else %}Account Status{% endif %}</div>
-                <div class="stat-value">{% if lang == 'hindi' %}सक्रिय{% else %}Active{% endif %}</div>
+                <span class="stat-label">Reference comparison</span
+                ><span class="stat-value">Rs {{ metrics.savings }}</span>
               </div>
             </div>
           </div>
@@ -186,9 +208,8 @@
                 color: var(--text);
               "
             >
-              {% if lang == 'hindi' %}मेडिकल बिल स्कैनर{% else %}Medical Bill Scanner{% endif %}
+              Medical Bill Scanner
             </h2>
-
             <form
               id="scannerForm"
               action="/scan"
@@ -196,10 +217,10 @@
               enctype="multipart/form-data"
             >
               <label for="fileInput" id="dropArea" class="upload-area">
-                <div id="uploadIcon" class="upload-icon">📄</div>
-                <div class="upload-text">{% if lang == 'hindi' %}अपना मेडिकल बिल यहां ड्रॉप करें{% else %}Drop your medical bill here{% endif %}</div>
+                <div id="uploadIcon" class="upload-icon">FILE</div>
+                <div class="upload-text">Drop your medical bill here</div>
                 <div class="upload-subtext">
-                  {% if lang == 'hindi' %}या फ़ाइलें ब्राउज़ करने के लिए क्लिक करें (JPG, PNG, PDF){% else %}or click to browse files (JPG, PNG, PDF){% endif %}
+                  or click to browse JPG or PNG files
                 </div>
                 <input
                   type="file"
@@ -209,15 +230,13 @@
                   accept="image/*,.pdf"
                 />
               </label>
-
               <div
                 id="filePreview"
                 style="display: none; margin-top: 1rem; text-align: center"
               >
-                <p style="color: var(--text-light)">{% if lang == 'hindi' %}चयनित फ़ाइल:{% else %}Selected File:{% endif %}</p>
+                <p style="color: var(--text-light)">Selected File:</p>
                 <p id="fileName" style="font-weight: 600"></p>
               </div>
-
               <div style="text-align: center; margin-top: 2rem">
                 <button
                   type="submit"
@@ -232,283 +251,52 @@
                     cursor: pointer;
                   "
                 >
-                  {% if lang == 'hindi' %}स्कैन शुरू करें{% else %}Start Scan{% endif %}
+                  Start Scan
                 </button>
               </div>
-
               <div
                 id="loadingSpinner"
                 style="display: none; text-align: center; margin-top: 2rem"
               >
-                <div class="upload-icon" style="font-size: 2rem">⏳</div>
-                <p>{% if lang == 'hindi' %}स्कैनिंग जारी है...{% else %}Scanning in progress...{% endif %}</p>
+                <div class="upload-icon" style="font-size: 2rem">...</div>
+                <p>Scanning in progress...</p>
               </div>
             </form>
           </div>
         </section>
 
-        <section class="content-section" id="profile">
-          <div class="profile-container">
-            <h2 class="profile-heading">{% if lang == 'hindi' %}अपना खाता प्रबंधित करें{% else %}Manage Your Account{% endif %}</h2>
-
-            <div class="profile-header">
-              <div class="profile-avatar">{{ user.first_name[0]|upper }}</div>
-
-              <div class="profile-info-container">
-                <div class="profile-info">
-                  <h2>{{ user.first_name }} {{ user.last_name }}</h2>
-                  <p>{{ user.email }}</p>
-                </div>
-
-                <button
-                  type="button"
-                  class="btn-profile-update"
-                  onclick="enableEditing()"
-                >
-                  {% if lang == 'hindi' %}प्रोफ़ाइल संपादित करें{% else %}Edit Profile{% endif %}
-                </button>
-              </div>
-            </div>
-
-            <form
-              class="profile-form"
-              id="updateProfileForm"
-              action="/update_profile"
-              method="POST"
+        <section class="content-section" id="hospitals">
+          <div
+            class="hospital-container"
+            style="
+              background: var(--white);
+              border-radius: 12px;
+              padding: 2rem;
+              box-shadow: var(--shadow);
+            "
+          >
+            <h2>Find Nearby Hospitals</h2>
+            <p id="locationStatus">
+              Click search to use your browser location.
+            </p>
+            <label
+              style="
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+                margin: 1rem 0;
+              "
             >
-              <div class="form-group">
-                <label class="form-label">{% if lang == 'hindi' %}पहला नाम{% else %}First Name{% endif %}</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  class="form-input"
-                  value="{{ user.first_name }}"
-                  readonly
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">{% if lang == 'hindi' %}अंतिम नाम{% else %}Last Name{% endif %}</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  class="form-input"
-                  value="{{ user.last_name }}"
-                  readonly
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">{% if lang == 'hindi' %}उपयोगकर्ता नाम{% else %}Username{% endif %}</label>
-                <input
-                  type="text"
-                  name="username"
-                  class="form-input"
-                  value="{{ user.username }}"
-                  readonly
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">{% if lang == 'hindi' %}ईमेल{% else %}Email{% endif %}</label>
-                <input
-                  type="email"
-                  name="email"
-                  class="form-input"
-                  value="{{ user.email }}"
-                  readonly
-                />
-              </div>
-
-              <div class="form-actions">
-                <button type="submit" class="btn-profile-save hidden">
-                  {% if lang == 'hindi' %}परिवर्तन सहेजें{% else %}Save Changes{% endif %}
-                </button>
-              </div>
-            </form>
-
-            <div class="profile-actions-vertical">
-              <button
-                class="btn-secondary"
-                onclick="openModal('changePasswordModal')"
-              >
-                {% if lang == 'hindi' %}पासवर्ड बदलें{% else %}Change Password{% endif %}
-              </button>
-              <button
-                class="btn-secondary"
-                onclick="openModal('forgotPasswordModal')"
-              >
-                {% if lang == 'hindi' %}पासवर्ड भूल गए{% else %}Forgot Password{% endif %}
-              </button>
-              <button
-                class="btn-secondary danger"
-                onclick="openModal('deleteAccountModal')"
-              >
-                {% if lang == 'hindi' %}खाता मिटाएं{% else %}Delete Account{% endif %}
-              </button>
-              <button
-                class="btn-secondary logout"
-                onclick="openModal('logoutModal')"
-              >
-                {% if lang == 'hindi' %}लॉग आउट करें{% else %}Logout{% endif %}
-              </button>
-            </div>
-          </div>
-
-          <div id="changePasswordModal" class="modal">
-            <div class="modal-content">
-              <span class="close" onclick="closeModal('changePasswordModal')"
-                >&times;</span
-              >
-              <h3>{% if lang == 'hindi' %}पासवर्ड बदलें{% else %}Change Password{% endif %}</h3>
-              <form
-                id="changePasswordForm"
-                action="/change_password"
-                method="POST"
-              >
-                <input
-                  type="password"
-                  name="current_password"
-                  placeholder="{% if lang == 'hindi' %}वर्तमान पासवर्ड{% else %}Current Password{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <input
-                  type="password"
-                  name="confirm_current_password"
-                  placeholder="{% if lang == 'hindi' %}वर्तमान पासवर्ड की पुष्टि करें{% else %}Confirm Current Password{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <input
-                  type="password"
-                  name="new_password"
-                  placeholder="{% if lang == 'hindi' %}नया पासवर्ड{% else %}New Password{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <input
-                  type="password"
-                  name="confirm_new_password"
-                  placeholder="{% if lang == 'hindi' %}नए पासवर्ड की पुष्टि करें{% else %}Confirm New Password{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <button type="submit" class="btn-modal">{% if lang == 'hindi' %}बदलें{% else %}Change{% endif %}</button>
-              </form>
-            </div>
-          </div>
-
-          <div id="forgotPasswordModal" class="modal">
-            <div class="modal-content">
-              <span class="close" onclick="closeModal('forgotPasswordModal')"
-                >&times;</span
-              >
-              <h3>{% if lang == 'hindi' %}पासवर्ड भूल गए{% else %}Forgot Password{% endif %}</h3>
-              <form
-                id="forgotPasswordForm"
-                action="/forgot_password"
-                method="POST"
-              >
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="{% if lang == 'hindi' %}अपना पंजीकृत ईमेल दर्ज करें{% else %}Enter your registered email{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <button type="submit" class="btn-modal">{% if lang == 'hindi' %}ओटीपी भेजें{% else %}Send OTP{% endif %}</button>
-              </form>
-            </div>
-          </div>
-
-          <div id="deleteAccountModal" class="modal">
-            <div class="modal-content">
-              <span class="close" onclick="closeModal('deleteAccountModal')"
-                >&times;</span
-              >
-              <h3>{% if lang == 'hindi' %}खाता मिटाएं{% else %}Delete Account{% endif %}</h3>
-              <p style="color: #e74c3c">
-                {% if lang == 'hindi' %}यह कार्रवाई अपरिवर्तनीय है। अपना खाता मिटाने के लिए कृपया अपना पासवर्डA पुष्टि करें।{% else %}This action is irreversible. Please confirm your password to delete your account.{% endif %}
-              </p>
-              <form
-                id="deleteAccountForm"
-                action="/delete_account"
-                method="POST"
-              >
-                <input
-                  type="password"
-                  name="delete_password"
-                  placeholder="{% if lang == 'hindi' %}पासवर्ड की पुष्टि करें{% else %}Confirm Password{% endif %}"
-                  class="form-input"
-                  required
-                />
-                <button type="submit" class="btn-modal danger">{% if lang == 'hindi' %}मिटाएं{% else %}Delete{% endif %}</button>
-              </form>
-            </div>
-          </div>
-
-          <div id="logoutModal" class="modal">
-            <div class="modal-content">
-              <span class="close" onclick="closeModal('logoutModal')"
-                >&times;</span
-              >
-              <h3>{% if lang == 'hindi' %}लॉग आउट की पुष्टि करें{% else %}Confirm Logout{% endif %}</h3>
-              <p>{% if lang == 'hindi' %}क्या आप वाकई लॉग आउट करना चाहते हैं?{% else %}Are you sure you want to logout?{% endif %}</p>
-              <div class="logout-buttons">
-                <a href="/logout" class="btn-modal danger">{% if lang == 'hindi' %}हाँ, लॉग आउट करें{% else %}Yes, Logout{% endif %}</a>
-                <button class="btn-modal" onclick="closeModal('logoutModal')">
-                  {% if lang == 'hindi' %}रद्द करें{% else %}Cancel{% endif %}
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-      
-
-        <div id="logoutModal" class="modal">
-          <div class="modal-content">
-            <span class="close" onclick="closeModal('logoutModal')"
-              >&times;</span
-            >
-            <h3>{% if lang == 'hindi' %}क्या आप वाकई लॉग आउट करना चाहते हैं?{% else %}Are you sure you want to logout?{% endif %}</h3>
-            <div class="logout-buttons">
-              <a href="/logout" class="btn-modal danger">{% if lang == 'hindi' %}हाँ, लॉग आउट करें{% else %}Yes, Logout{% endif %}</a>
-              <button onclick="closeModal('logoutModal')" class="btn-modal">
-                {% if lang == 'hindi' %}रद्द करें{% else %}Cancel{% endif %}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <section class="content-section" id="chatbot">
-          <div class="chatbot-container">
-            <div class="chatbot-header">
-              <span class="nav-icon">🤖</span>
-              <h3>{% if lang == 'hindi' %}एआई मेडिकल असिस्टेंट{% else %}AI Medical Assistant{% endif %}</h3>
-            </div>
-            <div class="chatbot-messages" id="chatMessages">
-              <div class="message bot">
-                <div class="message-avatar">AI</div>
-                <div class="message-content">
-                  {% if lang == 'hindi' %}नमस्ते! मैं आपका एआई मेडिकल असिस्टेंट हूँ। मैं आपके मेडिकल बिलों को समझने, मेडिकल शब्दों को समझाने और स्वास्थ्य संबंधी सवालों के जवाब देने में आपकी मदद कर सकता हूँ। आज मैं आपकी कैसे सहायता कर सकता हूँ?{% else %}Hello! I'm your AI medical assistant. I can help you understand your medical bills, explain medical terms, and answer healthcare-related questions. How can I assist you today?{% endif %}
-                </div>
-              </div>
-            </div>
-            <div class="chatbot-input">
-              <div class="input-group">
-                <input
-                  type="text"
-                  class="chat-input"
-                  id="chatInput"
-                  placeholder="{% if lang == 'hindi' %}अपने मेडिकल बिलों के बारे में कुछ भी पूछें...{% else %}Ask me anything about your medical bills...{% endif %}"
-                />
-                <button class="send-button" onclick="sendMessage()">
-                  {% if lang == 'hindi' %}भेजें{% else %}Send{% endif %}
-                </button>
-              </div>
-            </div>
+              <input type="checkbox" id="ayushmanOnly" />
+              Show Ayushman Bharat Hospitals
+            </label>
+            <button class="send-button" type="button" id="findHospitalsBtn">
+              Search hospitals
+            </button>
+            <div
+              id="hospitalList"
+              style="display: grid; gap: 1rem; margin-top: 1.5rem"
+            ></div>
           </div>
         </section>
 
@@ -522,106 +310,234 @@
             "
           >
             <h2 style="margin-bottom: 2rem; color: var(--text)">
-              {% if lang == 'hindi' %}स्कैन इतिहास{% else %}Scan History{% endif %}
+              {{ tr.history }}
             </h2>
-            <div
-              style="
-                text-align: center;
-                color: var(--text-light);
-                padding: 3rem;
-              "
-            >
-              {# <div style="font-size: 3rem; margin-bottom: 1rem">📋</div> #}
-              {% if scans and scans|length > 0 %}
-              <ul style="list-style: none; padding: 0">
-                {% for scan in scans %}
-                <li
-                  style="
-                    background: #f1f1f1;
-                    margin-bottom: 1rem;
-                    padding: 1rem;
-                    border-radius: 10px;
-                  "
-                >
-                  <strong>{{ scan.filename }}</strong><br />
-                  <em>{{ scan.timestamp }}</em><br />
-
-                  {% if scan.flagged %}
-                    <span style="color: red; font-weight: bold">{% if lang == 'hindi' %}⚠️ अधिक बिलिंग का पता चला{% else %}⚠️ Overbilling detected{% endif %}</span>
-                  {% else %}
-                    <span style="color: green">{% if lang == 'hindi' %}✅ कोई अधिक बिलिंग नहीं{% else %}✅ No overbilling{% endif %}</span>
-                  {% endif %}
-
-                  <div style="margin-top: 0.5rem">
-                    <a href="/result/{{ scan["id"] }}" style="font-weight: bold; color: #2d7ae0;">
-                      {% if lang == 'hindi' %}🔍 विस्तृत बिल विश्लेषण देखें{% else %}🔍 View Detailed Bill Analysis{% endif %}
-                    </a>
-                  </div>
-                </li>
-                {% endfor %}
-              </ul>
-              {% else %}
-              <div
+            {% if scans and scans|length > 0 %}
+            <ul style="list-style: none; padding: 0">
+              {% for scan in scans %}
+              <li
                 style="
-                  text-align: center;
-                  color: var(--text-light);
-                  padding: 3rem;
+                  background: #f1f1f1;
+                  margin-bottom: 1rem;
+                  padding: 1rem;
+                  border-radius: 10px;
                 "
               >
-                <div style="font-size: 3rem; margin-bottom: 1rem">📋</div>
-                <h3>{% if lang == 'hindi' %}अभी तक कोई स्कैन नहीं{% else %}No scans yet{% endif %}</h3>
-                <p>
-                  {% if lang == 'hindi' %}एक बार जब आप दस्तावेज़ स्कैन करना शुरू कर देंगे तो आपका स्कैन इतिहास यहां दिखाई देगा।{% else %}Your scan history will appear here once you start scanning documents.{% endif %}
-                </p>
-                <button
-                  onclick="showSection('scanner')"
-                  style="
-                    margin-top: 1rem;
-                    padding: 0.75rem 1.5rem;
-                    background: var(--info);
-                    color: var(--white);
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                  "
+                <strong>{{ scan.filename }}</strong><br />
+                <em>{{ scan.timestamp }}</em><br />
+                {% if scan.flagged and scan.flagged != '{}' %}
+                <span style="color: #b91c1c; font-weight: bold"
+                  >Overbilling detected</span
                 >
-                  {% if lang == 'hindi' %}स्कैनिंग शुरू करें{% else %}Start Scanning{% endif %}
+                {% else %}
+                <span style="color: #047857">No overbilling detected</span>
+                {% endif %}
+                <div style="margin-top: 0.5rem">
+                  <a
+                    href="/result/{{ scan.id }}"
+                    style="font-weight: bold; color: #2d7ae0"
+                    >View detailed bill analysis</a
+                  >
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p>
+              Your scan history will appear here once you start scanning
+              documents.
+            </p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="content-section" id="profile">
+          <div class="profile-container">
+            <h2 class="profile-heading">Manage Your Account</h2>
+            <div class="profile-header">
+              <div class="profile-avatar">{{ user.first_name[0]|upper }}</div>
+              <div class="profile-info-container">
+                <div class="profile-info">
+                  <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+                  <p>{{ user.email }}</p>
+                  <p>Status: {{ tr.active }}</p>
+                </div>
+                <button
+                  type="button"
+                  class="btn-profile-update"
+                  onclick="enableEditing()"
+                >
+                  Edit Profile
                 </button>
               </div>
-              {% endif %}
-{# 
+            </div>
+            <form
+              class="profile-form"
+              id="updateProfileForm"
+              action="/update_profile"
+              method="POST"
+            >
+              <div class="form-group">
+                <label class="form-label">First Name</label
+                ><input
+                  type="text"
+                  name="first_name"
+                  class="form-input"
+                  value="{{ user.first_name }}"
+                  readonly
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last Name</label
+                ><input
+                  type="text"
+                  name="last_name"
+                  class="form-input"
+                  value="{{ user.last_name }}"
+                  readonly
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Username</label
+                ><input
+                  type="text"
+                  name="username"
+                  class="form-input"
+                  value="{{ user.username }}"
+                  readonly
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label
+                ><input
+                  type="email"
+                  name="email"
+                  class="form-input"
+                  value="{{ user.email }}"
+                  readonly
+                />
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn-profile-save hidden">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+            <div class="profile-actions-vertical">
               <button
-                onclick="showSection('scanner')"
-                style="
-                  margin-top: 1rem;
-                  padding: 0.75rem 1.5rem;
-                  background: var(--info);
-                  color: var(--white);
-                  border: none;
-                  border-radius: 8px;
-                  cursor: pointer;
-                "
+                class="btn-secondary"
+                onclick="openModal('changePasswordModal')"
               >
-                {% if lang == 'hindi' %}स्कैनिंग शुरू करें{% else %}Start Scanning{% endif %}
-              </button> #}
+                Change Password
+              </button>
+              <button
+                class="btn-secondary"
+                onclick="openModal('forgotPasswordModal')"
+              >
+                Forgot Password
+              </button>
+              <button
+                class="btn-secondary danger"
+                onclick="openModal('deleteAccountModal')"
+              >
+                Delete Account
+              </button>
+              <a
+                class="btn-secondary logout"
+                style="text-align: center; text-decoration: none"
+                href="/logout"
+                >Logout</a
+              >
             </div>
           </div>
         </section>
       </main>
     </div>
+
+    <div id="changePasswordModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('changePasswordModal')"
+          >&times;</span
+        >
+        <h3>Change Password</h3>
+        <form action="/change_password" method="POST">
+          <input
+            type="password"
+            name="current_password"
+            placeholder="Current Password"
+            class="form-input"
+            required
+          /><input
+            type="password"
+            name="confirm_current_password"
+            placeholder="Confirm Current Password"
+            class="form-input"
+            required
+          /><input
+            type="password"
+            name="new_password"
+            placeholder="New Password"
+            class="form-input"
+            required
+          /><input
+            type="password"
+            name="confirm_new_password"
+            placeholder="Confirm New Password"
+            class="form-input"
+            required
+          /><button type="submit" class="btn-modal">Change</button>
+        </form>
+      </div>
+    </div>
+    <div id="forgotPasswordModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('forgotPasswordModal')"
+          >&times;</span
+        >
+        <h3>Forgot Password</h3>
+        <form action="/forgot_password" method="POST">
+          <input
+            type="email"
+            name="email"
+            placeholder="Enter your registered email"
+            class="form-input"
+            required
+          /><button type="submit" class="btn-modal">Send OTP</button>
+        </form>
+      </div>
+    </div>
+    <div id="deleteAccountModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('deleteAccountModal')"
+          >&times;</span
+        >
+        <h3>Delete Account</h3>
+        <p>
+          This action is irreversible. Confirm your password to delete your
+          account.
+        </p>
+        <form action="/delete_account" method="POST">
+          <input
+            type="password"
+            name="delete_password"
+            placeholder="Confirm Password"
+            class="form-input"
+            required
+          /><button type="submit" class="btn-modal danger">Delete</button>
+        </form>
+      </div>
+    </div>
     <div id="feedbackModal" class="modal">
       <div class="modal-content">
         <span class="close" onclick="closeModal('feedbackModal')">&times;</span>
-        <h3 id="feedbackTitle">{% if lang == 'hindi' %}कार्य सफल{% else %}Action Successful{% endif %}</h3>
-        <p id="feedbackMessage">{% if lang == 'hindi' %}आपकी प्रोफ़ाइल सफलतापूर्वक अपडेट कर दी गई थी।{% else %}Your profile was updated successfully.{% endif %}</p>
-        <div style="text-align: center; margin-top: 1.5rem">
-          <button class="btn-modal" onclick="closeModal('feedbackModal')">
-            {% if lang == 'hindi' %}ठीक है{% else %}OK{% endif %}
-          </button>
-        </div>
+        <h3 id="feedbackTitle">Action</h3>
+        <p id="feedbackMessage"></p>
+        <button class="btn-modal" onclick="closeModal('feedbackModal')">
+          OK
+        </button>
       </div>
-      <script src="/static/scripts/dashboard.js"></script>
     </div>
-    
+
+    <script src="/static/scripts/dashboard.js"></script>
   </body>
 </html>

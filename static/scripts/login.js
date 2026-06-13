@@ -91,9 +91,9 @@ loginForm.addEventListener('submit', function (e) {
       submitButton.classList.remove('loading');
       if (data.success) {
         alert("Login successful!");
-        window.location.href = "/dashboard";
+        window.location.href = data.redirect_url || "/dashboard";
       } else {
-        alert("Invalid credentials!");
+        alert(data.message || "Invalid credentials!");
       }
     })
     .catch(error => {

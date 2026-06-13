@@ -3,3 +3,5 @@ flask-cors
 pytesseract
 Pillow
 rapidfuzz
+python-dotenv
+google-generativeai

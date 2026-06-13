@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -134,11 +134,7 @@
             जाएगा{% else %}All queries will be answered in 24–48 hours{% endif
             %}
           </p>
-          <form
-            class="contact-form"
-            method="POST"
-            action="{{ url_for('contact') }}"
-          >
+          <form class="contact-form" method="POST" action="/contact">
             <input
               type="text"
               name="name"
@@ -169,7 +165,9 @@
           <h3>
             {% if lang == 'hindi' %}हमारी टीम{% else %}Our Team{% endif %}
           </h3>
-          <p><strong>Akshita Sachdeva</strong> — UI/UX & Integration</p>
+          <p>
+            <strong>Akshita Sachdeva</strong> — UI/UX, Frontend & Integration
+          </p>
           <p><strong>Jas Kamra</strong> — Backend & Overbilling Logic</p>
         </div>
       </div>

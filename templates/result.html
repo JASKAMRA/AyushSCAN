@@ -1,100 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
   <head>
     <meta charset="UTF-8" />
-    <title>
-      {% if lang == 'hindi' %}स्कैन परिणाम - आयुषस्कैन{% else %}Scan Results -
-      AyushScan{% endif %}
-    </title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scan Results - AyushScan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles/result.css" />
   </head>
   <body>
-    <h2>
-      🧾 {% if lang == 'hindi' %}स्कैन परिणाम{% else %}Scan Results{% endif %}
-    </h2>
+    <h2>Scan Results</h2>
 
     <table id="resultsTable">
       <thead>
         <tr>
-          <th>{% if lang == 'hindi' %}आइटम{% else %}Item{% endif %}</th>
-          <th>
-            {% if lang == 'hindi' %}अनुमानित एमआरपी{% else %}Expected MRP{%
-            endif %}
-          </th>
-          <th>
-            {% if lang == 'hindi' %}बिल राशि{% else %}Billed Amount{% endif %}
-          </th>
-          <th>{% if lang == 'hindi' %}स्थिति{% else %}Status{% endif %}</th>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Detected Price</th>
+          <th>Expected Price</th>
+          <th>Difference</th>
+          <th>Overpricing</th>
         </tr>
       </thead>
-      <tbody id="resultsBody">
-        <!-- Filled by JS -->
+      <tbody>
+        {% set items = report.get('detected_items', []) %}
+        {% if items %}
+          {% for item in items %}
+          <tr class="{% if item.difference and item.difference > 0 %}overbilled{% endif %}">
+            <td>{{ item.name }}</td>
+            <td>{{ item.category }}</td>
+            <td>{% if item.detected_price is not none %}Rs {{ item.detected_price }}{% else %}Not detected{% endif %}</td>
+            <td>Rs {{ item.expected_price }}</td>
+            <td>{% if item.difference is not none %}Rs {{ item.difference }}{% else %}N/A{% endif %}</td>
+            <td>{{ item.overpricing_percentage }}%</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="6" class="no-data">No matching medicines were detected in the bill text.</td></tr>
+        {% endif %}
       </tbody>
     </table>
 
-    <!-- New Section: Detected Illness -->
+    <div class="illness-section">
+      <h3>Structured Report</h3>
+      <p>Total items detected: {{ report.get('summary', {}).get('total_detected', 0) }}</p>
+      <p>Overpriced items: {{ report.get('summary', {}).get('overpriced_count', 0) }}</p>
+      <p>Estimated savings: Rs {{ report.get('summary', {}).get('estimated_savings', 0) }}</p>
+      {% if report.get('duplicates') %}
+      <p>Duplicate detections: {{ report.get('duplicates')|join(', ') }}</p>
+      {% endif %}
+      {% if report.get('invalid_pricing') %}
+      <p>Invalid or missing prices: {{ report.get('invalid_pricing')|join(', ') }}</p>
+      {% endif %}
+      {% if report.get('missing_medicine_detection') %}
+      <p>{{ report.get('missing_medicine_detection') }}</p>
+      {% endif %}
+    </div>
+
     {% if illness %}
     <div class="illness-section">
-      <h3>
-        {% if lang == 'hindi' %}🧠 पहचानी गई बीमारी:{% else %}🧠 Detected
-        Illness:{% endif %}
-      </h3>
+      <h3>Detected Treatment Context</h3>
       <p>{{ illness }}</p>
     </div>
     {% endif %}
 
-    <!-- New Section: Ayushman Bharat Eligibility -->
     {% if scheme_info %}
     <div class="scheme-section">
-      <h3>
-        {% if lang == 'hindi' %}🏥 आयुष्मान भारत योजना:{% else %}🏥 Ayushman
-        Bharat Scheme:{% endif %}
-      </h3>
+      <h3>Ayushman Bharat Scheme Note</h3>
       <p>{{ covered }}</p>
     </div>
     {% endif %}
 
-    <a href="/dashboard" class="btn-back">
-      ⬅️ {% if lang == 'hindi' %}डैशबोर्ड पर वापस जाएँ{% else %}Back to
-      Dashboard{% endif %}
-    </a>
-
-    <script>
-      const lang = "{{ lang }}";
-      const data = JSON.parse(localStorage.getItem("scanResults"));
-      const flagged = data.flagged || {};
-      const tbody = document.getElementById("resultsBody");
-
-      if (Object.keys(flagged).length === 0) {
-        const row = document.createElement("tr");
-        const message =
-          lang === "hindi"
-            ? "✅ ओवरबिलिंग नहीं पाई गई।"
-            : "✅ No overbilling detected.";
-        row.innerHTML = `<td colspan="4" class="no-data">${message}</td>`;
-        tbody.appendChild(row);
-      } else {
-        for (const item in flagged) {
-          const f = flagged[item];
-          const statusText =
-            lang === "hindi"
-              ? `🚨 ₹${f.extra} की अतिरिक्त बिलिंग`
-              : `🚨 Overbilled by ₹${f.extra}`;
-          const row = document.createElement("tr");
-          row.classList.add("overbilled");
-          row.innerHTML = `
-          <td>${item.toUpperCase()}</td>
-          <td>₹${f.expected}</td>
-          <td>₹${f.billed}</td>
-          <td>${statusText}</td>
-        `;
-          tbody.appendChild(row);
-        }
-      }
-    </script>
+    <a href="/dashboard" class="btn-back">Back to Dashboard</a>
   </body>
 </html>
