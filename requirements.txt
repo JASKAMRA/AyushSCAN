@@ -5,3 +5,5 @@ Pillow
 rapidfuzz
 python-dotenv
 google-generativeai
+pypdf
+pypdfium2

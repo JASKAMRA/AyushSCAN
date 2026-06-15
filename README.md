@@ -91,7 +91,7 @@ http://127.0.0.1:5000
 
 ## 🔐 Environment Variables (`.env`)
 
-To run **AyushScan** locally, you need to provide your **Gemini API key** using a `.env` file.
+AyushScan's image/PDF scanner and price matching work without a Google API key. A Gemini API key is optional and is used only for the AI chatbot and treatment-context notes.
 
 ### 📄 Step-by-step:
 

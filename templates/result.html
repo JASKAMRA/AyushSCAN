@@ -9,42 +9,90 @@
   </head>
   <body>
     <h2>Scan Results</h2>
+    <p class="results-intro">
+      Quantities show how many units were read from your bill and how they were interpreted for comparison.
+      Pack sizes are taken from the bill when available, then normalized against Jan Aushadhi reference pricing.
+    </p>
+
+    {% if report.get('summary', {}).get('low_confidence_disclaimer') %}
+    <p class="confidence-warning">{{ report.summary.low_confidence_disclaimer }}</p>
+    {% endif %}
 
     <table id="resultsTable">
       <thead>
         <tr>
-          <th>Item</th>
+          <th>Medicine</th>
           <th>Category</th>
-          <th>Detected Price</th>
-          <th>Expected Price</th>
-          <th>Difference</th>
-          <th>Overpricing</th>
+          <th>Quantity on Bill</th>
+          <th>Pack Size</th>
+          <th>What You Paid</th>
+          <th>Jan Aushadhi Expected</th>
+          <th>Overpaid By</th>
+          <th>Confidence</th>
         </tr>
       </thead>
       <tbody>
         {% set items = report.get('detected_items', []) %}
         {% if items %}
           {% for item in items %}
-          <tr class="{% if item.difference and item.difference > 0 %}overbilled{% endif %}">
-            <td>{{ item.name }}</td>
+          {% set is_low = item.get('confidence_tier') == 'low' %}
+          {% set is_over = item.difference and item.difference > 0 and not is_low %}
+          <tr class="{% if is_over %}overbilled{% elif is_low %}low-confidence{% endif %}">
+            <td class="cell-left">{{ item.name }}</td>
             <td>{{ item.category }}</td>
-            <td>{% if item.detected_price is not none %}Rs {{ item.detected_price }}{% else %}Not detected{% endif %}</td>
-            <td>Rs {{ item.expected_price }}</td>
-            <td>{% if item.difference is not none %}Rs {{ item.difference }}{% else %}N/A{% endif %}</td>
-            <td>{{ item.overpricing_percentage }}%</td>
+            <td class="cell-qty">
+              <strong>{{ item.get('quantity_display', item.get('quantity', 1)) }}</strong>
+              <span class="cell-sub">{{ item.get('quantity_detail', '') }}</span>
+              <span class="cell-sub">{{ item.get('comparison_label', '') }}</span>
+            </td>
+            <td>
+              {{ item.get('pack_size_display', item.get('unit', 'N/A')) }}
+              {% if item.get('price_normalized') %}
+              <span class="cell-sub">Normalized from Jan Aushadhi {{ item.get('csv_pack_size') }}'s</span>
+              {% endif %}
+            </td>
+            <td class="cell-left">{{ item.get('billed_display', 'Not detected') }}</td>
+            <td class="cell-left">{{ item.get('expected_display', 'N/A') }}</td>
+            <td>
+              {% if is_low %}
+                <span class="cell-sub">Estimated only</span>
+              {% elif item.difference is not none %}
+                Rs {{ item.difference }}
+                {% if item.overpricing_percentage %}<span class="cell-sub">{{ item.overpricing_percentage }}% above reference</span>{% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+            </td>
+            <td>
+              {% if item.get('confidence_tier') %}
+                {{ item.confidence_tier|capitalize }}
+                {% if item.get('combined_confidence') is not none %}
+                <span class="cell-sub">{{ (item.combined_confidence * 100)|round(0)|int }}%</span>
+                {% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+              {% if item.get('low_confidence_disclaimer') %}
+              <span class="cell-sub">{{ item.low_confidence_disclaimer }}</span>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="6" class="no-data">No matching medicines were detected in the bill text.</td></tr>
+          <tr><td colspan="8" class="no-data">No matching medicines were detected in the bill text.</td></tr>
         {% endif %}
       </tbody>
     </table>
 
     <div class="illness-section">
       <h3>Structured Report</h3>
+      <p>Parser used: {{ report.get('parse_source', 'rule_based')|replace('_', ' ') }}</p>
       <p>Total items detected: {{ report.get('summary', {}).get('total_detected', 0) }}</p>
-      <p>Overpriced items: {{ report.get('summary', {}).get('overpriced_count', 0) }}</p>
+      <p>High-confidence overpriced items: {{ report.get('summary', {}).get('overpriced_count', 0) }}</p>
       <p>Estimated savings: Rs {{ report.get('summary', {}).get('estimated_savings', 0) }}</p>
+      {% if report.get('low_confidence_items') %}
+      <p>Low-confidence items: {{ report.get('low_confidence_items') }}</p>
+      {% endif %}
       {% if report.get('duplicates') %}
       <p>Duplicate detections: {{ report.get('duplicates')|join(', ') }}</p>
       {% endif %}
@@ -55,6 +103,13 @@
       <p>{{ report.get('missing_medicine_detection') }}</p>
       {% endif %}
     </div>
+
+    {% if transcript %}
+    <div class="illness-section">
+      <h3>OCR Transcript</h3>
+      <pre style="white-space: pre-wrap; margin: 0; font-family: inherit;">{{ transcript }}</pre>
+    </div>
+    {% endif %}
 
     {% if illness %}
     <div class="illness-section">

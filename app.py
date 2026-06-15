@@ -32,7 +32,17 @@ except ImportError:
     pytesseract = None
 
 try:
-    from PIL import Image, UnidentifiedImageError
+    from pypdf import PdfReader
+except ImportError:
+    PdfReader = None
+
+try:
+    import pypdfium2 as pdfium
+except ImportError:
+    pdfium = None
+
+try:
+    from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 except ImportError:
     Image = None
 
@@ -47,6 +57,14 @@ except ImportError:
     class _FuzzFallback:
         @staticmethod
         def token_set_ratio(a, b):
+            return int(SequenceMatcher(None, a, b).ratio() * 100)
+
+        @staticmethod
+        def partial_ratio(a, b):
+            return int(SequenceMatcher(None, a, b).ratio() * 100)
+
+        @staticmethod
+        def ratio(a, b):
             return int(SequenceMatcher(None, a, b).ratio() * 100)
 
     fuzz = _FuzzFallback()
@@ -265,18 +283,80 @@ def extract_mg(text):
     return float(match.group(1)) if match else None
 
 
+def extract_dosage_form(text):
+    match = re.search(
+        r"\b(tablets?|capsules?|injections?|suspensions?|syrups?|creams?|gels?|ointments?|drops?|vials?)\b",
+        (text or "").lower(),
+    )
+    if not match:
+        return ""
+    form = match.group(1)
+    return {
+        "tablet": "tablets", "capsule": "capsules", "injection": "injections",
+        "suspension": "suspensions", "syrup": "syrups", "cream": "creams",
+        "gel": "gels", "ointment": "ointments", "drop": "drops", "vial": "vials",
+    }.get(form, form)
+
+
+def extract_primary_name(text):
+    without_item_number = re.sub(r"^\s*\d+[.)-]?\s+", "", text or "")
+    match = re.search(r"[a-zA-Z][a-zA-Z-]{2,}", without_item_number)
+    return match.group(0).lower() if match else ""
+
+
 def extract_price_info(line):
     rupee_values = re.findall(r"(?:rs\.?|inr|₹)\s*(\d+(?:\.\d{1,2})?)", line, flags=re.I)
-    numbers = rupee_values or re.findall(r"\d+\.\d{1,2}|\d+", line)
-    if not numbers:
+    if rupee_values:
+        return float(rupee_values[-1]), "detected_price"
+
+    amount_match = re.search(r"(\d+(?:\.\d{1,2})?)\s*$", line or "")
+    if not amount_match:
         return None, "not_found"
-    try:
-        values = [float(v) for v in numbers]
-    except ValueError:
-        return None, "not_found"
-    if len(values) >= 2 and values[-2] > 0 and values[-1] > values[-2]:
-        return round(values[-1] / values[-2], 2), "calculated_unit_price"
-    return values[-1], "detected_price"
+
+    amount = float(amount_match.group(1))
+    prefix = line[:amount_match.start()].rstrip()
+    quantity_match = re.search(r"(?:^|\s)(\d{1,3})\s*$", prefix)
+    if quantity_match:
+        quantity = int(quantity_match.group(1))
+        if 0 < quantity <= 100:
+            return round(amount / quantity, 2), "calculated_unit_price"
+    return amount, "detected_price"
+
+
+def extract_billing_info(line):
+    text = line or ""
+    explicit_quantity = re.search(r"\bqty\.?\s*[:=-]?\s*(\d{1,3})\b", text, flags=re.I)
+
+    # Remove strengths and pack sizes before looking for quantity and total.
+    pricing_text = re.sub(r"\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|kg|ml|l|iu|units?)\b", " ", text, flags=re.I)
+    pricing_text = re.sub(r"\b\d+\s*['’]s\b", " ", pricing_text, flags=re.I)
+    pricing_text = re.sub(r"^\s*\d+[.)-]\s*", "", pricing_text)
+
+    numeric_matches = list(re.finditer(r"(?<![\d.])(\d+(?:\.\d{1,2})?)(?![\d.])", pricing_text))
+    if not numeric_matches:
+        return None, "not_found", 1, None
+
+    total_match = numeric_matches[-1]
+    line_total = float(total_match.group(1))
+    quantity = int(explicit_quantity.group(1)) if explicit_quantity else 1
+
+    if not explicit_quantity:
+        before_total = pricing_text[:total_match.start()]
+        standalone_integers = re.findall(r"(?<![\d.])(\d{1,3})(?![\d.])", before_total)
+        if standalone_integers:
+            candidate_quantity = int(standalone_integers[0])
+            if 0 < candidate_quantity <= 100:
+                quantity = candidate_quantity
+
+    unit_price = round(line_total / quantity, 2) if quantity > 1 else line_total
+    price_type = "calculated_unit_price" if quantity > 1 else "detected_price"
+    return unit_price, price_type, quantity, line_total
+
+
+def is_price_continuation_line(line):
+    cleaned = re.sub(r"\b(?:qty|quantity|rs|inr|amount|total|price|rate)\b", " ", line or "", flags=re.I)
+    cleaned = re.sub(r"[\d\s.,:₹â‚¹xX*=-]", "", cleaned)
+    return not cleaned.strip() and bool(re.search(r"\d", line or ""))
 
 
 def load_products():
@@ -303,6 +383,10 @@ def load_products():
                 "average_price": float(avg or mrp),
                 "market_price": float(market or mrp),
                 "search": preprocess(" ".join([generic, brand, category, row.get("Unit Size", "")])),
+                "name_search": preprocess(" ".join([generic, brand])),
+                "primary_name": extract_primary_name(generic),
+                "dosage_form": extract_dosage_form(generic),
+                "is_combination": bool(re.search(r"\s(?:and|\+)\s|,", generic, flags=re.I)),
                 "mg": extract_mg(generic),
             })
     return products
@@ -312,18 +396,30 @@ PRODUCTS = load_products()
 
 
 def find_best_product(line):
-    clean_line = preprocess(line)
+    stripped_line = preprocess_for_matching(line)
     line_mg = extract_mg(line)
+    line_primary = extract_primary_name(line)
+    line_form = extract_dosage_form(line)
+    line_is_combination = bool(re.search(r"\s(?:and|\+)\s|,", line, flags=re.I))
     best_product = None
     best_score = 0
     for product in PRODUCTS:
+        primary_score = fuzz.ratio(line_primary, product["primary_name"]) if line_primary else 0
+        if line_primary and primary_score < 72:
+            continue
         if line_mg and product["mg"] and abs(line_mg - product["mg"]) > 0.01:
             continue
-        score = fuzz.token_set_ratio(clean_line, product["search"])
+        if line_form and product["dosage_form"] and line_form != product["dosage_form"]:
+            continue
+        token_score = fuzz.token_set_ratio(stripped_line, product["name_search"])
+        ratio_score = fuzz.ratio(stripped_line, product["name_search"])
+        score = (token_score * 0.45) + (ratio_score * 0.35) + (primary_score * 0.20)
+        if product["is_combination"] and not line_is_combination:
+            score -= 25
         if score > best_score:
             best_score = score
             best_product = product
-    return (best_product, best_score) if best_score >= 68 else (None, best_score)
+    return (best_product, best_score) if best_score >= 62 else (None, best_score)
 
 
 def find_medicine_price(query):
@@ -351,24 +447,114 @@ def fallback_chat_response(message, language="english", mode="gemini"):
     return "I am running in fallback mode right now. Ask about a medicine price, bill charge, hospital search, or Ayushman Bharat coverage."
 
 
-def ask_gemini(message, language):
-    if genai is None:
-        raise RuntimeError("google-generativeai is not installed")
-    if not os.getenv("GOOGLE_API_KEY"):
-        raise RuntimeError("GOOGLE_API_KEY is not configured")
+def get_user_scan_context(user_id, limit=5):
+    context_lines = []
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, flagged, report, illness, covered, savings, timestamp
+            FROM scans
+            WHERE user_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        ).fetchall()
+        history = conn.execute(
+            """
+            SELECT user_message, bot_response
+            FROM chat_history
+            WHERE user_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 6
+            """,
+            (user_id,),
+        ).fetchall()
+    for row in rows:
+        try:
+            flagged = json.loads(row["flagged"] or "{}")
+        except json.JSONDecodeError:
+            flagged = {}
+        try:
+            report = json.loads(row["report"] or "{}")
+        except json.JSONDecodeError:
+            report = {}
+        if flagged:
+            flagged_summary = "; ".join(
+                f"{name}: overpaid Rs {data.get('extra', 0)} ({data.get('comparison_basis', 'unknown')} basis)"
+                for name, data in list(flagged.items())[:5]
+            )
+            context_lines.append(f"Scan {row['id']} flagged items: {flagged_summary}")
+        items = report.get("detected_items", [])[:5]
+        if items:
+            item_summary = "; ".join(
+                f"{item.get('name')}: qty {item.get('quantity')}, paid {item.get('billed_display', item.get('line_total'))}"
+                for item in items
+            )
+            context_lines.append(f"Scan {row['id']} detected medicines: {item_summary}")
+        if row["illness"]:
+            context_lines.append(f"Scan {row['id']} treatment context: {row['illness'][:200]}")
+        if row["covered"]:
+            context_lines.append(f"Scan {row['id']} PM-JAY note: {row['covered'][:200]}")
+    chat_context = []
+    for item in reversed(history):
+        chat_context.append(f"User: {item['user_message'][:300]}")
+        chat_context.append(f"Assistant: {item['bot_response'][:400]}")
+    return {
+        "scan_context": "\n".join(context_lines[:12]),
+        "chat_context": "\n".join(chat_context[-8:]),
+    }
+
+
+def extract_gemini_text(response):
+    if not response:
+        return ""
+    text = getattr(response, "text", None)
+    if text:
+        return text.strip()
+    candidates = getattr(response, "candidates", None) or []
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) if content else None
+        if not parts:
+            continue
+        chunks = [getattr(part, "text", "") for part in parts if getattr(part, "text", None)]
+        if chunks:
+            return "\n".join(chunks).strip()
+    return ""
+
+
+def ask_gemini(message, language, user_id=None):
     instruction = {
         "english": "Reply in clear English.",
         "hindi": "Reply in simple Hindi.",
         "hinglish": "Reply in friendly Hinglish using Roman script.",
     }.get(language, "Reply clearly.")
+    context_block = ""
+    if user_id:
+        context = get_user_scan_context(user_id)
+        if context["scan_context"]:
+            context_block += f"\nRecent scan analysis for this user:\n{context['scan_context']}\n"
+        if context["chat_context"]:
+            context_block += f"\nRecent chat history:\n{context['chat_context']}\n"
     prompt = (
         "You are Lia, AyushScan's careful medical billing assistant. "
-        "Do not diagnose. Explain bills, medicine pricing, and healthcare navigation safely. "
-        f"{instruction}\n\nUser: {message}"
+        "Do not diagnose. Explain bills, medicine pricing, Jan Aushadhi comparisons, "
+        "PM-JAY/Ayushman Bharat coverage, OCR scan results, and healthcare navigation safely. "
+        "If the user asks why a medicine was flagged, use the scan context when available. "
+        "Do not invent scan results that are not in the context. "
+        "If the user asks about a medicine price, check the Janaushadhi dataset first. "
+        "If you cannot find a match, say so and suggest the user try the generic name with strength. "
+        "Do not use Scan Number in the response"
+        f"{instruction}"
+        f"{context_block}\n\nUser: {message}"
     )
-    model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash-latest"))
+    model = get_gemini_model()
     response = model.generate_content(prompt)
-    return response.text.strip()
+    reply = extract_gemini_text(response)
+    if not reply:
+        raise RuntimeError("Gemini returned an empty response")
+    return reply
 
 
 def save_chat(user_id, message, reply, language, mode):
@@ -421,51 +607,812 @@ def send_otp_email(email, otp, purpose="forgot_password"):
 
 
 def clean_ocr_text(text):
-    text = re.sub(r"[^\S\r\n]+", " ", text or "")
-    text = text.replace("|", " ")
-    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
+    text = (text or "").replace("\x0c", " ")
+    text = text.replace("₹", " Rs ").replace("â‚¹", " Rs ")
+    text = text.replace("|", " ").replace("¦", " ")
+    text = re.sub(r"[^\S\r\n]+", " ", text)
+    text = re.sub(r"\s*([,:;])\s*", r" \1 ", text)
+    return "\n".join(normalize_ocr_line(line.strip()) for line in text.splitlines() if line.strip())
+
+
+def normalize_ocr_line(line):
+    line = re.sub(r"^[^a-zA-Z0-9]+", "", line or "")
+    digit_map = str.maketrans({
+        "O": "0", "o": "0", "E": "0", "e": "0", "@": "0",
+        "I": "1", "i": "1", "l": "1", "S": "5", "s": "5",
+        "B": "8", "b": "8",
+    })
+
+    def fix_strength(match):
+        raw_number = match.group(1).translate(digit_map)
+        unit = match.group(2).lower().replace("n", "m")
+        return f"{raw_number}{unit}"
+
+    return re.sub(
+        r"\b([0-9OoEe@IlisSBb]{1,6})\s*(mg|ng|ml|mcg)\b",
+        fix_strength,
+        line,
+        flags=re.I,
+    )
+
+
+def strip_trailing_numeric_columns(text):
+    tokens = (text or "").split()
+    while tokens:
+        token = tokens[-1].lower().rstrip(".,")
+        if re.fullmatch(r"(?:rs\.?|inr)?\d+(?:\.\d{1,2})?", token):
+            tokens.pop()
+            continue
+        break
+    return " ".join(tokens)
+
+
+def preprocess_for_matching(text):
+    return preprocess(strip_trailing_numeric_columns(text))
+
+
+def ocr_quality_score(text):
+    clean_text = text or ""
+    alpha_num = len(re.findall(r"[a-z0-9]", clean_text.lower()))
+    digit_count = len(re.findall(r"\d", clean_text))
+    lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
+    line_count = len(lines)
+    receipt_rows = sum(
+        1 for line in lines
+        if re.search(r"[a-zA-Z]{3,}", line) and re.search(r"\d+\.\d{1,2}\s*$", line)
+    )
+    fragmented_rows = sum(1 for line in lines if re.fullmatch(r"[\d.,]+", line))
+    medicine_hint_count = len(
+        re.findall(r"\b(?:tablet|tablets|tab|capsule|capsules|cap|mg|ml|syrup|injection)\b", clean_text.lower())
+    )
+    return alpha_num + (line_count * 10) + (medicine_hint_count * 20) + (receipt_rows * 60) + digit_count - (fragmented_rows * 20)
+
+
+def preprocess_image_for_ocr(image, invert=False):
+    working = image.convert("L")
+    max_side = max(working.size)
+    if max_side < 1800:
+        scale = max(2, min(4, int(round(1800 / max_side))))
+        working = working.resize((working.width * scale, working.height * scale), Image.LANCZOS)
+    working = ImageOps.autocontrast(working)
+    if invert:
+        working = ImageOps.invert(working)
+    working = working.filter(ImageFilter.SHARPEN)
+    working = ImageEnhance.Contrast(working).enhance(1.8)
+    working = ImageEnhance.Sharpness(working).enhance(1.4)
+    return working
+
+
+def threshold_image(image, invert=False, level=175):
+    working = image.convert("L")
+    if invert:
+        working = ImageOps.invert(working)
+    return working.point(lambda px: 255 if px >= level else 0)
+
+
+def ocr_image_to_text(image):
+    if pytesseract is None or Image is None:
+        return ""
+
+    base = preprocess_image_for_ocr(image, invert=False)
+    variants = [
+        base,
+        threshold_image(base, invert=False, level=175),
+        threshold_image(base, invert=True, level=175),
+        image,
+    ]
+    if ImageStat.Stat(base).mean[0] < 140:
+        variants.append(preprocess_image_for_ocr(image, invert=True))
+    else:
+        variants.append(ImageOps.invert(base))
+
+    configs = [
+        f'--oem 3 --psm 4 -l {os.getenv("TESSERACT_LANG", "eng")}',
+        f'--oem 3 --psm 6 -l {os.getenv("TESSERACT_LANG", "eng")}',
+        f'--oem 3 --psm 11 -l {os.getenv("TESSERACT_LANG", "eng")}',
+    ]
+
+    candidates = []
+    for prepared in variants:
+        for config in configs:
+            try:
+                text = pytesseract.image_to_string(prepared, config=config)
+            except Exception:
+                continue
+            cleaned = clean_ocr_text(text)
+            if cleaned:
+                candidates.append(cleaned)
+
+    if not candidates:
+        try:
+            return clean_ocr_text(pytesseract.image_to_string(image, config=configs[0]))
+        except Exception:
+            return ""
+    return max(candidates, key=ocr_quality_score)
+
+
+def extract_pdf_text(file_path):
+    extracted_text = ""
+    if PdfReader is not None:
+        try:
+            reader = PdfReader(str(file_path))
+            extracted_pages = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    extracted_pages.append(page_text)
+            extracted_text = clean_ocr_text("\n".join(extracted_pages))
+            if len(re.findall(r"[a-zA-Z]{3,}", extracted_text)) >= 3:
+                return extracted_text, "pdf_text"
+        except Exception as exc:
+            app.logger.warning("PDF text extraction failed: %s", exc)
+
+    if pdfium is not None and pytesseract is not None and Image is not None:
+        try:
+            document = pdfium.PdfDocument(str(file_path))
+            page_texts = []
+            max_pages = min(len(document), int(os.getenv("PDF_OCR_MAX_PAGES", "12")))
+            render_scale = float(os.getenv("PDF_OCR_SCALE", "3.5"))
+            for page_index in range(max_pages):
+                page = document[page_index]
+                bitmap = page.render(scale=render_scale, rotation=0)
+                page_image = bitmap.to_pil()
+                page_text = ocr_image_to_text(page_image)
+                if page_text.strip():
+                    page_texts.append(page_text)
+                bitmap.close()
+                page.close()
+            document.close()
+            rendered_text = clean_ocr_text("\n".join(page_texts))
+            if rendered_text:
+                return rendered_text, "pdf_ocr"
+        except Exception as exc:
+            app.logger.warning("PDFium rendering/OCR failed: %s", exc)
+
+    # This fallback handles simple scan PDFs that contain a full-page image.
+    if PdfReader is not None and pytesseract is not None and Image is not None:
+        try:
+            reader = PdfReader(str(file_path))
+            image_texts = []
+            for page in reader.pages[:int(os.getenv("PDF_OCR_MAX_PAGES", "12"))]:
+                ranked_images = []
+                for image_file in page.images:
+                    pil_image = image_file.image
+                    ranked_images.append((pil_image.width * pil_image.height, pil_image))
+                for _, pil_image in sorted(ranked_images, key=lambda item: item[0], reverse=True)[:2]:
+                    image_text = ocr_image_to_text(pil_image)
+                    if image_text.strip():
+                        image_texts.append(image_text)
+            embedded_text = clean_ocr_text("\n".join(image_texts))
+            if embedded_text:
+                return embedded_text, "pdf_embedded_image_ocr"
+        except Exception as exc:
+            app.logger.warning("Embedded PDF image OCR failed: %s", exc)
+    return "", "unavailable"
+
+
+ALLOWED_COMPARISON_BASES = frozenset({"tablet", "strip", "pack", "line_total", "unknown"})
+STRUCTURE_CONFIDENCE_THRESHOLD = 0.6
+LOW_CONFIDENCE_THRESHOLD = 0.6
+HIGH_CONFIDENCE_THRESHOLD = 0.8
+
+
+def get_gemini_model():
+    if genai is None:
+        raise RuntimeError("google-generativeai is not installed")
+    if not os.getenv("GOOGLE_API_KEY"):
+        raise RuntimeError("GOOGLE_API_KEY is not configured")
+    return genai.GenerativeModel(os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash-latest"))
+
+
+def gemini_generate_json(prompt):
+    model = get_gemini_model()
+    generation_config = {"response_mime_type": "application/json"}
+    response = model.generate_content(prompt, generation_config=generation_config)
+    if not response or not getattr(response, "text", None):
+        return None
+    return response.text.strip()
+
+
+def parse_json_payload(text):
+    if not text:
+        return None
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"[\[{][\s\S]*[\]}]", cleaned)
+        if not match:
+            return None
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+
+
+def confidence_tier(confidence):
+    if confidence is None:
+        return "low"
+    try:
+        value = float(confidence)
+    except (TypeError, ValueError):
+        return "low"
+    if value >= HIGH_CONFIDENCE_THRESHOLD:
+        return "high"
+    if value >= LOW_CONFIDENCE_THRESHOLD:
+        return "medium"
+    return "low"
+
+
+def parse_csv_pack_size(unit_text):
+    match = re.search(r"(\d+)", unit_text or "")
+    return max(int(match.group(1)), 1) if match else 1
+
+
+PACK_SIZE_BILL_PATTERNS = [
+    (re.compile(r"strip\s+of\s+(\d+)", re.I), 1),
+    (re.compile(r"pack\s+of\s+(\d+)", re.I), 1),
+    (re.compile(r"\b(\d+)\s*x\s*(\d+)\b", re.I), 2),
+    (re.compile(r"\(\s*(\d+)\s*(?:tablets?|tabs?|capsules?|caps?)\s*\)", re.I), 1),
+    (re.compile(r"\b(\d+)\s*(?:tablets?|tabs?|capsules?|caps?)\b", re.I), 1),
+]
+
+
+def extract_pack_size(text):
+    for pattern, group_index in PACK_SIZE_BILL_PATTERNS:
+        match = pattern.search(text or "")
+        if not match:
+            continue
+        try:
+            size = int(match.group(group_index))
+        except (TypeError, ValueError):
+            continue
+        if 1 <= size <= 1000:
+            return {"pack_size": size, "source": "bill"}
+    return {"pack_size": None, "source": "unknown"}
+
+
+def gemini_infer_pack_size(bill_line, medicine_name, csv_pack_size):
+    if genai is None or not os.getenv("GOOGLE_API_KEY"):
+        return None
+    try:
+        prompt = f"""Infer the medicine pack size (number of tablets/capsules per strip or pack) from this bill line.
+DO NOT calculate prices or totals.
+Return ONLY valid JSON:
+{{"pack_size": 10, "confidence": 0.85, "reasoning": "brief reason"}}
+
+Use null for pack_size if unknown.
+Bill line: {bill_line}
+Medicine: {medicine_name}
+Reference CSV pack size (fallback only): {csv_pack_size}
+"""
+        raw = gemini_generate_json(prompt)
+        payload = parse_json_payload(raw)
+        if not isinstance(payload, dict):
+            return None
+        pack_size = payload.get("pack_size")
+        if pack_size is None:
+            return None
+        pack_size = int(pack_size)
+        if not 1 <= pack_size <= 1000:
+            return None
+        return {
+            "pack_size": pack_size,
+            "source": "gemini",
+            "confidence": max(0.0, min(float(payload.get("confidence", 0.7)), 1.0)),
+            "reasoning": str(payload.get("reasoning", "")).strip(),
+        }
+    except Exception as exc:
+        app.logger.warning("Gemini pack size inference unavailable: %s", exc)
+        return None
+
+
+def resolve_pack_size(bill_line, product):
+    bill_pack = extract_pack_size(bill_line)
+    if bill_pack["pack_size"]:
+        return bill_pack
+    csv_pack = parse_csv_pack_size(product.get("unit", ""))
+    gemini_pack = gemini_infer_pack_size(bill_line, product.get("generic", ""), csv_pack)
+    if gemini_pack and gemini_pack.get("pack_size"):
+        return gemini_pack
+    return {"pack_size": csv_pack, "source": "csv"}
+
+
+def get_reference_prices(product, pack_info=None):
+    csv_pack_size = parse_csv_pack_size(product.get("unit", ""))
+    if pack_info and pack_info.get("pack_size"):
+        bill_pack_size = int(pack_info["pack_size"])
+        pack_source = pack_info.get("source", "csv")
+    else:
+        bill_pack_size = csv_pack_size
+        pack_source = "csv"
+    csv_mrp = float(product.get("mrp") or 0)
+    per_tablet = round(csv_mrp / csv_pack_size, 6) if csv_pack_size else csv_mrp
+    normalized_strip = round(per_tablet * bill_pack_size, 4)
+    return {
+        "csv_pack_size": csv_pack_size,
+        "bill_pack_size": bill_pack_size,
+        "pack_size": bill_pack_size,
+        "pack_size_source": pack_source,
+        "unit_label": product.get("unit", ""),
+        "csv_mrp": csv_mrp,
+        "per_tablet_price": per_tablet,
+        "strip_price": normalized_strip,
+        "tablet_price": per_tablet,
+        "pack_price": normalized_strip,
+        "normalized": bill_pack_size != csv_pack_size,
+    }
+
+
+def parse_gemini_json_response(text):
+    payload = parse_json_payload(text)
+    if not isinstance(payload, dict):
+        return None
+    basis = str(payload.get("comparison_basis", "")).lower().strip()
+    if basis not in ALLOWED_COMPARISON_BASES:
+        return None
+    try:
+        confidence = float(payload.get("confidence", 0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return {
+        "comparison_basis": basis,
+        "confidence": max(0.0, min(confidence, 1.0)),
+        "reasoning": str(payload.get("reasoning", "")).strip(),
+    }
+
+
+def gemini_bill_structure_extraction(ocr_text):
+    if genai is None or not os.getenv("GOOGLE_API_KEY"):
+        return None
+    try:
+        prompt = f"""Extract medicine line items from this medical bill OCR text.
+DO NOT calculate totals, savings, percentages, GST, or discounts.
+Ignore dates, addresses, hospital names, phone numbers, patient names, and grand totals.
+Return ONLY valid JSON:
+{{
+  "items": [
+    {{"medicine": "Paracetamol 500mg", "quantity": 2, "amount": 120}}
+  ],
+  "confidence": 0.89
+}}
+
+Rules:
+- Include only medicines/drugs with a price
+- quantity defaults to 1 if missing
+- amount is the line total in rupees
+- confidence reflects how complete and reliable the extraction is
+
+OCR Text:
+{(ocr_text or "")[:8000]}
+"""
+        raw = gemini_generate_json(prompt)
+        payload = parse_json_payload(raw)
+        if not isinstance(payload, dict):
+            return None
+        items = payload.get("items")
+        if not isinstance(items, list):
+            return None
+        cleaned_items = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            medicine = str(item.get("medicine", "")).strip()
+            if len(medicine) < 3:
+                continue
+            try:
+                quantity = int(item.get("quantity", 1) or 1)
+            except (TypeError, ValueError):
+                quantity = 1
+            try:
+                amount = float(item.get("amount"))
+            except (TypeError, ValueError):
+                continue
+            if amount <= 0:
+                continue
+            cleaned_items.append({
+                "medicine": medicine,
+                "quantity": max(1, min(quantity, 1000)),
+                "amount": round(amount, 2),
+            })
+        if not cleaned_items:
+            return None
+        try:
+            confidence = float(payload.get("confidence", 0.5))
+        except (TypeError, ValueError):
+            confidence = 0.5
+        return {
+            "items": cleaned_items,
+            "confidence": max(0.0, min(confidence, 1.0)),
+        }
+    except Exception as exc:
+        app.logger.warning("Gemini bill structure extraction unavailable: %s", exc)
+        return None
+
+
+def extract_rule_based_bill_lines(text):
+    lines = clean_ocr_text(text).splitlines()
+    bill_lines = []
+    for index, raw_line in enumerate(lines):
+        if not re.search(r"[a-zA-Z]{3,}", raw_line):
+            continue
+        combined_line = raw_line
+        if extract_billing_info(raw_line)[3] is None:
+            for next_line in lines[index + 1:index + 3]:
+                if not is_price_continuation_line(next_line):
+                    break
+                combined_line = f"{combined_line} {next_line}"
+        bill_lines.append({
+            "raw_line": combined_line,
+            "source": "rule_based",
+            "structure_confidence": 0.55,
+        })
+    return bill_lines
+
+
+def fallback_commercial_interpretation(unit_price, line_total, quantity, refs):
+    qty = quantity or 1
+    unit_price = unit_price if unit_price is not None else (line_total or 0)
+    line_total = line_total if line_total is not None else unit_price
+    per_unit = round(line_total / qty, 2) if qty > 1 else line_total
+    candidates = [
+        ("strip", refs["strip_price"], per_unit),
+        ("tablet", refs["tablet_price"], round(line_total / qty, 4) if qty else line_total),
+        ("pack", refs["pack_price"], per_unit),
+        ("line_total", refs["strip_price"] * qty, line_total),
+    ]
+    best_basis = "strip"
+    best_ratio = float("inf")
+    for basis, expected, billed in candidates:
+        if not expected:
+            continue
+        ratio = abs(billed - expected) / expected
+        if ratio < best_ratio:
+            best_ratio = ratio
+            best_basis = basis
+    return {
+        "comparison_basis": best_basis,
+        "confidence": 0.45,
+        "reasoning": "Rule-based fallback: closest reference price match selected because AI interpretation was unavailable.",
+    }
+
+
+def gemini_commercial_interpretation(bill_line, quantity, line_total, unit_price, product, refs, ocr_text=""):
+    fallback = fallback_commercial_interpretation(unit_price, line_total, quantity, refs)
+    if genai is None or not os.getenv("GOOGLE_API_KEY"):
+        return fallback
+    try:
+        prompt = f"""You interpret how a medical bill line item should be commercially compared against Jan Aushadhi reference pricing.
+
+DO NOT calculate prices, percentages, savings, totals, or any numeric comparison results.
+Return ONLY valid JSON with exactly these keys:
+- comparison_basis: one of "tablet", "strip", "pack", "line_total", "unknown"
+- confidence: number from 0 to 1
+- reasoning: one short sentence explaining the commercial interpretation
+
+Bill Line:
+{bill_line}
+
+OCR Context:
+{(ocr_text or "")[:2000]}
+
+Extracted Facts:
+- Quantity: {quantity}
+- Line Total: Rs {line_total}
+- Unit Price: Rs {unit_price}
+
+Reference Dataset:
+- Medicine: {product['generic']}
+- CSV Pack Size: {refs['unit_label']} ({refs['csv_pack_size']} units)
+- Bill Pack Size Used: {refs['bill_pack_size']} ({refs['pack_size_source']})
+- Jan Aushadhi CSV MRP: Rs {refs['csv_mrp']}
+- Normalized Strip Price (for bill pack size): Rs {refs['strip_price']}
+- Jan Aushadhi Tablet Price: Rs {refs['tablet_price']}
+
+Choose comparison_basis based on what the billed amount most likely represents.
+Use "unknown" only if the commercial unit cannot be determined reliably.
+"""
+        raw = gemini_generate_json(prompt)
+        decision = parse_gemini_json_response(raw)
+        if not decision:
+            return fallback
+        if decision["comparison_basis"] == "unknown":
+            fb = fallback_commercial_interpretation(unit_price, line_total, quantity, refs)
+            decision["comparison_basis"] = fb["comparison_basis"]
+            decision["confidence"] = min(decision.get("confidence", 0.4), fb.get("confidence", 0.45))
+            decision["reasoning"] = decision.get("reasoning") or fb.get("reasoning", "")
+        return decision
+    except Exception as exc:
+        app.logger.warning("Gemini commercial interpretation unavailable: %s", exc)
+        fallback["reasoning"] = f"AI interpretation unavailable ({exc}); using rule-based fallback."
+        return fallback
+
+
+def compute_commercial_pricing(decision, refs, quantity, line_total, unit_price):
+    basis = decision.get("comparison_basis", "strip")
+    qty = quantity or 1
+    line_total = line_total if line_total is not None else (unit_price or 0)
+    unit_price = unit_price if unit_price is not None else line_total
+    per_qty_price = round(line_total / qty, 2) if qty > 1 else round(line_total, 2)
+
+    if basis == "tablet":
+        expected_price = refs["tablet_price"]
+        billed_price = round(line_total / qty, 4) if qty else round(line_total, 4)
+        expected_line_total = round(expected_price * qty, 2)
+    elif basis == "pack":
+        expected_price = refs["pack_price"]
+        billed_price = per_qty_price
+        expected_line_total = round(expected_price * qty, 2)
+    elif basis == "line_total":
+        expected_price = round(refs["strip_price"] * qty, 2)
+        billed_price = round(line_total, 2)
+        expected_line_total = expected_price
+    else:
+        basis = "strip"
+        expected_price = refs["strip_price"]
+        billed_price = per_qty_price
+        expected_line_total = round(expected_price * qty, 2)
+
+    difference = round(billed_price - expected_price, 2)
+    overpricing_percentage = (
+        round((difference / expected_price) * 100, 2)
+        if expected_price and difference > 0
+        else 0
+    )
+    total_difference = round(line_total - expected_line_total, 2)
+    item_confidence = decision.get("confidence")
+    tier = confidence_tier(item_confidence)
+
+    return {
+        "comparison_basis": basis,
+        "ai_confidence": item_confidence,
+        "confidence_tier": tier,
+        "expected_price": expected_price,
+        "billed_price": billed_price,
+        "difference": difference,
+        "overpricing_percentage": overpricing_percentage,
+        "expected_line_total": expected_line_total,
+        "total_difference": total_difference,
+        "interpretation_reasoning": decision.get("reasoning", ""),
+        "low_confidence_disclaimer": (
+            "Estimated comparison based on limited bill information."
+            if tier == "low"
+            else ""
+        ),
+    }
+
+
+def _pluralize_unit(unit, count):
+    if count == 1:
+        return unit
+    if unit.endswith("s"):
+        return unit
+    return f"{unit}s"
+
+
+def build_result_display_labels(quantity, comparison_basis, refs, line_total, pricing):
+    qty = quantity or 1
+    basis = comparison_basis or "strip"
+    unit_names = {
+        "tablet": "tablet",
+        "strip": "strip",
+        "pack": "pack",
+        "line_total": "strip",
+    }
+    unit = unit_names.get(basis, "unit")
+    unit_plural = _pluralize_unit(unit, qty)
+    pack_label = refs.get("unit_label") or f"{refs['pack_size']}'s"
+    pack_size = refs.get("bill_pack_size", refs.get("pack_size", 1))
+    csv_pack_size = refs.get("csv_pack_size", pack_size)
+
+    quantity_display = f"{qty} {unit_plural}"
+    quantity_detail = f"Bill quantity interpreted as {qty} {_pluralize_unit(unit, qty)}"
+    if refs.get("normalized"):
+        quantity_detail += f" (bill pack: {pack_size}, Jan Aushadhi reference: {csv_pack_size})"
+    elif pack_size > 1 and basis in {"strip", "pack", "line_total"}:
+        quantity_detail += f" ({pack_label} per {unit})"
+    elif basis == "tablet" and pack_size > 1:
+        quantity_detail += f" (reference pack: {pack_label})"
+
+    line_total_value = line_total if line_total is not None else pricing["billed_price"]
+    if basis == "line_total":
+        billed_display = f"Rs {line_total_value:.2f} (full line total for {quantity_display})"
+        expected_display = f"Rs {pricing['expected_line_total']:.2f} expected for {quantity_display}"
+    else:
+        billed_display = (
+            f"Rs {line_total_value:.2f} total - Rs {pricing['billed_price']:.2f} per {unit}"
+        )
+        expected_display = (
+            f"Rs {pricing['expected_line_total']:.2f} for {quantity_display} "
+            f"(Rs {pricing['expected_price']:.2f} per {unit})"
+        )
+
+    return {
+        "quantity_display": quantity_display,
+        "quantity_detail": quantity_detail,
+        "pack_size_display": f"{pack_size} units" if refs.get("normalized") else pack_label,
+        "billed_display": billed_display,
+        "expected_display": expected_display,
+        "comparison_label": f"Compared per {unit}",
+    }
+
+
+def process_bill_line(raw_line, ocr_text, structure_confidence=0.55, parse_source="rule_based"):
+    product = None
+    score = 0
+    best_candidate = raw_line
+    best_pricing = (None, "not_found", 1, None)
+    candidate_lines = [raw_line]
+    for candidate_line in candidate_lines:
+        candidate_product, candidate_score = find_best_product(candidate_line)
+        candidate_pricing = extract_billing_info(candidate_line)
+        candidate_has_price = candidate_pricing[3] is not None
+        if candidate_score > score or (candidate_product and candidate_score == score and candidate_has_price):
+            product = candidate_product
+            score = candidate_score
+            best_candidate = candidate_line
+            best_pricing = candidate_pricing
+    if not product:
+        return None
+
+    billed, price_type, quantity, line_total = best_pricing
+    pack_info = resolve_pack_size(best_candidate, product)
+    refs = get_reference_prices(product, pack_info)
+    decision = gemini_commercial_interpretation(
+        best_candidate,
+        quantity,
+        line_total,
+        billed,
+        product,
+        refs,
+        ocr_text=ocr_text,
+    )
+    pricing = compute_commercial_pricing(decision, refs, quantity, line_total, billed)
+    combined_confidence = min(
+        float(structure_confidence or 0.55),
+        float(pricing.get("ai_confidence") or 0.55),
+    )
+    pricing["combined_confidence"] = round(combined_confidence, 2)
+    pricing["confidence_tier"] = confidence_tier(combined_confidence)
+    if pricing["confidence_tier"] == "low":
+        pricing["low_confidence_disclaimer"] = "Estimated comparison based on limited bill information."
+
+    display = build_result_display_labels(quantity, pricing["comparison_basis"], refs, line_total, pricing)
+    return {
+        "product": product,
+        "score": score,
+        "quantity": quantity,
+        "line_total": line_total,
+        "billed": billed,
+        "price_type": price_type,
+        "best_candidate": best_candidate,
+        "pack_info": pack_info,
+        "refs": refs,
+        "pricing": pricing,
+        "display": display,
+        "parse_source": parse_source,
+        "structure_confidence": structure_confidence,
+    }
 
 
 def analyze_bill(text):
-    lines = clean_ocr_text(text).splitlines()
+    cleaned = clean_ocr_text(text)
+    structured = gemini_bill_structure_extraction(cleaned)
+    parse_source = "rule_based"
+    structure_confidence = 0.55
+    bill_entries = []
+
+    if structured and structured.get("confidence", 0) >= STRUCTURE_CONFIDENCE_THRESHOLD:
+        parse_source = "gemini_structure"
+        structure_confidence = structured["confidence"]
+        for item in structured["items"]:
+            medicine = item["medicine"]
+            qty = item["quantity"]
+            amount = item["amount"]
+            raw_line = f"{medicine} Qty {qty} Rs {amount}"
+            bill_entries.append({
+                "raw_line": raw_line,
+                "source": parse_source,
+                "structure_confidence": structure_confidence,
+            })
+    else:
+        bill_entries = extract_rule_based_bill_lines(cleaned)
+
     flagged = {}
     detected_items = []
     duplicates = []
     seen = {}
+    low_confidence_items = 0
 
-    for raw_line in lines:
-        product, score = find_best_product(raw_line)
-        if not product:
+    for entry in bill_entries:
+        processed = process_bill_line(
+            entry["raw_line"],
+            cleaned,
+            structure_confidence=entry.get("structure_confidence", structure_confidence),
+            parse_source=entry.get("source", parse_source),
+        )
+        if not processed:
             continue
-        billed, price_type = extract_price_info(raw_line)
+
+        product = processed["product"]
+        pricing = processed["pricing"]
+        display = processed["display"]
+        quantity = processed["quantity"]
+        line_total = processed["line_total"]
+        billed = processed["billed"]
+        price_type = processed["price_type"]
+        score = processed["score"]
+        pack_info = processed["pack_info"]
+        refs = processed["refs"]
+
         key = product["generic"].lower()
         seen[key] = seen.get(key, 0) + 1
         if seen[key] == 2:
             duplicates.append(product["generic"])
-        expected = product["mrp"]
-        difference = round((billed or 0) - expected, 2) if billed is not None else None
-        overpricing_percentage = round((difference / expected) * 100, 2) if expected and difference and difference > 0 else 0
+
         item = {
             "name": product["generic"],
             "brand": product["brand"] or "N/A",
             "category": product["category"] or "N/A",
             "unit": product["unit"],
+            "quantity": quantity,
+            "quantity_display": display["quantity_display"],
+            "quantity_detail": display["quantity_detail"],
+            "pack_size_display": display["pack_size_display"],
+            "bill_pack_size": refs["bill_pack_size"],
+            "csv_pack_size": refs["csv_pack_size"],
+            "pack_size_source": refs["pack_size_source"],
+            "price_normalized": refs.get("normalized", False),
+            "billed_display": display["billed_display"],
+            "expected_display": display["expected_display"],
+            "comparison_label": display["comparison_label"],
+            "line_total": line_total,
             "detected_price": billed,
-            "expected_price": expected,
-            "difference": difference,
-            "overpricing_percentage": overpricing_percentage,
+            "expected_price": pricing["expected_price"],
+            "expected_line_total": pricing["expected_line_total"],
+            "billed_price": pricing["billed_price"],
+            "unit_difference": pricing["difference"],
+            "difference": pricing["total_difference"],
+            "overpricing_percentage": pricing["overpricing_percentage"],
+            "comparison_basis": pricing["comparison_basis"],
+            "ai_confidence": pricing["ai_confidence"],
+            "combined_confidence": pricing["combined_confidence"],
+            "confidence_tier": pricing["confidence_tier"],
+            "low_confidence_disclaimer": pricing.get("low_confidence_disclaimer", ""),
+            "interpretation_reasoning": pricing["interpretation_reasoning"],
+            "parse_source": processed["parse_source"],
             "match_score": score,
-            "note": f"Compared using {price_type}",
+            "note": (
+                f"Unit price calculated as Rs {line_total:.2f} / {quantity}"
+                if price_type == "calculated_unit_price" and line_total is not None
+                else "Compared using detected unit price"
+            ),
         }
         detected_items.append(item)
-        if billed is not None and billed > expected:
+
+        is_overpriced = pricing["total_difference"] is not None and pricing["total_difference"] > 0
+        if pricing["confidence_tier"] == "low":
+            low_confidence_items += 1
+        if is_overpriced and pricing["confidence_tier"] != "low":
             flagged[product["generic"]] = {
-                "expected": expected,
-                "billed": billed,
-                "extra": difference,
-                "overpricing_percentage": overpricing_percentage,
+                "expected": pricing["expected_price"],
+                "billed": pricing["billed_price"],
+                "quantity": quantity,
+                "line_total": line_total,
+                "expected_line_total": pricing["expected_line_total"],
+                "extra": pricing["total_difference"],
+                "overpricing_percentage": pricing["overpricing_percentage"],
+                "comparison_basis": pricing["comparison_basis"],
+                "ai_confidence": pricing["combined_confidence"],
+                "confidence_tier": pricing["confidence_tier"],
                 "category": item["category"],
-                "note": f"Overpriced by {overpricing_percentage}% compared with reference MRP.",
+                "note": (
+                    f"Line total is Rs {pricing['total_difference']:.2f} above reference pricing "
+                    f"({pricing['comparison_basis']} basis)."
+                ),
             }
 
     invalid_pricing = [item["name"] for item in detected_items if item["detected_price"] is None or item["detected_price"] <= 0]
@@ -474,10 +1421,18 @@ def analyze_bill(text):
         "duplicates": duplicates,
         "missing_medicine_detection": "No obvious medicine names were detected." if not detected_items else "",
         "invalid_pricing": invalid_pricing,
+        "parse_source": parse_source,
+        "structure_confidence": structure_confidence,
+        "low_confidence_items": low_confidence_items,
         "summary": {
             "total_detected": len(detected_items),
             "overpriced_count": len(flagged),
             "estimated_savings": round(sum(item["extra"] for item in flagged.values()), 2),
+            "low_confidence_disclaimer": (
+                "Estimated comparison based on limited bill information."
+                if low_confidence_items
+                else ""
+            ),
         },
     }
     return flagged, report
@@ -485,22 +1440,20 @@ def analyze_bill(text):
 
 def gemini_bill_context(text):
     try:
-        if genai is None:
-            raise RuntimeError("google-generativeai is not installed")
-        if not os.getenv("GOOGLE_API_KEY"):
-            raise RuntimeError("GOOGLE_API_KEY missing")
-        model = genai.GenerativeModel(os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash-latest"))
+        model = get_gemini_model()
         prompt = (
             "Review this medical bill OCR text. In two short paragraphs, say likely treatment category "
             "and whether common items may be covered under Ayushman Bharat PM-JAY. Avoid firm diagnosis.\n\n"
             f"{text[:5000]}"
         )
-        analysis = model.generate_content(prompt).text.strip()
-        ayushman = model.generate_content(
+        analysis = extract_gemini_text(model.generate_content(prompt))
+        if not analysis:
+            raise RuntimeError("Gemini returned an empty bill analysis")
+        ayushman = extract_gemini_text(model.generate_content(
             "From this analysis, give a cautious PM-JAY coverage note in 2-3 lines:\n" + analysis[:2000]
-        ).text.strip()
+        ))
         illness = analysis.splitlines()[0] if analysis else "N/A"
-        return illness, ayushman, analysis
+        return illness, ayushman or "Coverage depends on PM-JAY package rules and whether the hospital is empanelled.", analysis
     except Exception as exc:
         app.logger.warning("Gemini bill context unavailable: %s", exc)
         return (
@@ -508,7 +1461,6 @@ def gemini_bill_context(text):
             "Coverage depends on PM-JAY package rules and whether the hospital is empanelled.",
             fallback_chat_response("bill coverage"),
         )
-
 
 def haversine_km(lat1, lon1, lat2, lon2):
     radius = 6371
@@ -715,23 +1667,40 @@ def chatbot_page():
 @app.route("/chatbot/message", methods=["POST"])
 def chatbot_message():
     if "user_id" not in session:
-        return jsonify(reply="Please log in first."), 401
+        return jsonify(success=False, reply="Please log in first.", source="error"), 401
     data = request.get_json(silent=True) or {}
     user_input = (data.get("message") or "").strip()
-    mode = data.get("mode", "price")
+    mode = data.get("mode", "gemini")
     language = detect_language(user_input)
     if not user_input:
-        return jsonify(reply=fallback_chat_response("", language, mode)), 400
-    if mode == "price":
-        reply = find_medicine_price(user_input) or fallback_chat_response(user_input, language, mode)
-    else:
-        try:
-            reply = ask_gemini(user_input, language)
-        except Exception as exc:
-            app.logger.warning("Gemini chatbot fallback: %s", exc)
-            reply = fallback_chat_response(user_input, language, mode)
+        reply = fallback_chat_response("", language, mode)
+        return jsonify(success=False, reply=reply, language=language, mode=mode, source="fallback"), 400
+
+    source = "fallback"
+    reply = ""
+    try:
+        if mode == "price":
+            reply = find_medicine_price(user_input)
+            if reply:
+                source = "price_lookup"
+            else:
+                reply = fallback_chat_response(user_input, language, mode)
+        else:
+            reply = ask_gemini(user_input, language, user_id=session["user_id"])
+            source = "gemini"
+    except Exception as exc:
+        app.logger.warning("Chatbot fallback: %s", exc)
+        reply = fallback_chat_response(user_input, language, mode)
+        source = "fallback"
+
     save_chat(session["user_id"], user_input, reply, language, mode)
-    return jsonify(reply=reply, language=language)
+    return jsonify(
+        success=True,
+        reply=reply,
+        language=language,
+        mode=mode,
+        source=source,
+    )
 
 
 @app.route("/hospitals/nearby")
@@ -763,11 +1732,25 @@ def scan():
     file.save(file_path)
     try:
         if file_path.suffix.lower() == ".pdf":
-            return jsonify(success=False, message="PDF upload needs OCR conversion. Please upload JPG or PNG for this demo."), 400
-        if pytesseract is None or Image is None:
-            return jsonify(success=False, message="OCR dependencies are missing. Run pip install -r requirements.txt."), 500
-        image = Image.open(file_path)
-        text = clean_ocr_text(pytesseract.image_to_string(image))
+            text, scan_mode = extract_pdf_text(file_path)
+            if not text:
+                if pytesseract is None or Image is None:
+                    return jsonify(
+                        success=False,
+                        message="This PDF needs OCR to read scanned pages, but OCR dependencies are missing. Text-based PDFs still work.",
+                    ), 500
+                if pdfium is None:
+                    return jsonify(
+                        success=False,
+                        message="PDF rendering support is missing. Run pip install -r requirements.txt, then restart the app.",
+                    ), 500
+                return jsonify(success=False, message="Could not read this PDF. Please try a clearer PDF or an image upload."), 400
+        else:
+            if pytesseract is None or Image is None:
+                return jsonify(success=False, message="OCR dependencies are missing. Run pip install -r requirements.txt."), 500
+            image = Image.open(file_path)
+            text = ocr_image_to_text(image)
+            scan_mode = "image"
         flagged, report = analyze_bill(text)
         illness, covered, gemini_analysis = gemini_bill_context(text)
         savings = report["summary"]["estimated_savings"]
@@ -786,6 +1769,7 @@ def scan():
             report=report,
             text=text,
             gemini_analysis=gemini_analysis,
+            scan_mode=scan_mode,
         )
     except UnidentifiedImageError:
         return jsonify(success=False, message="Invalid or corrupted image file."), 400
@@ -815,6 +1799,7 @@ def result(scan_id):
         report=json.loads(row["report"] or "{}"),
         illness=row["illness"] or "N/A",
         covered=row["covered"] or "N/A",
+        transcript=row["text"] or "",
         scheme_info=bool(row["covered"]),
     )
 

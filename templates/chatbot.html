@@ -32,8 +32,8 @@
       </div>
 
       <div class="mode-buttons">
-        <button class="mode-btn selected" type="button" onclick="setMode('price')">Medicine Price</button>
-        <button class="mode-btn" type="button" onclick="setMode('gemini')">Ask AI</button>
+        <button class="mode-btn" type="button" onclick="setMode('price')">Medicine Price</button>
+        <button class="mode-btn selected" type="button" onclick="setMode('gemini')">Ask AI</button>
         <button class="secondary" type="button" id="listenBtn">Listen</button>
         <button class="secondary" type="button" id="speakToggle">Speech On</button>
       </div>
@@ -53,7 +53,7 @@
     </div>
 
     <script>
-      let selectedMode = "price";
+      let selectedMode = "gemini";
       let speechEnabled = true;
       const messages = document.getElementById("messages");
       const input = document.getElementById("userInput");
@@ -95,8 +95,15 @@
           });
           const data = await res.json();
           loading.remove();
+          if (!data.success && !data.reply) {
+            appendMessage("Sorry, I could not understand that.", "bot");
+            return;
+          }
           const reply = data.reply || "Sorry, I could not understand that.";
           appendMessage(reply, "bot");
+          if (data.source === "fallback") {
+            appendMessage("Note: AI is temporarily unavailable, so a fallback answer was used.", "bot");
+          }
           speak(reply, data.language);
         } catch (err) {
           loading.remove();
