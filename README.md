@@ -1,12 +1,12 @@
 <h1 align="center">📊 AyushScan</h1>
 
 <p align="center"><i>AI-powered medical bill analyzer and health assistant for Bharat</i></p>
-<p align="center">("This is around 60-70% working right now")</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Flask-WebApp-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Chatbot-AI-green?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Gemini-AI-green?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/OCR-Tesseract-purple?style=for-the-badge"/>
 </p>
 
 ---
@@ -20,12 +20,11 @@
   <i>Click the image to view the demo (Unlisted)</i>
 </p>
 
-
 ---
 
 ## 🚀 What is AyushScan?
 
-**AyushScan** is a smart healthcare web app that lets users upload medical bills, analyze them for overpricing using a curated dataset, and get quick AI-backed responses to medical queries. Designed especially for India's healthcare needs, it's a step toward accessible and transparent medical expense tracking.
+**AyushScan** is a smart healthcare web app that lets users upload medical bills (images or PDFs), analyze them for overpricing against the Jan Aushadhi/Janaushadhi reference dataset, and get AI-backed guidance on medical queries. Designed especially for India's healthcare needs, it supports English, Hindi, and Hinglish and provides transparent, accessible medical expense tracking.
 
 ---
 
@@ -33,47 +32,77 @@
 
 | Feature | Description |
 |--------|-------------|
-| 📄 Bill Scanner | Uploads and scans bills to detect overpriced medicines/services |
-| 💬 AI Chatbot | Currently a basic Gemini-powered chatbot  |
-| 🏥 Nearby Hospitals | Shows a static list based on location input (Google Maps API not yet integrated) |
-| 🧾 User Dashboard | Displays past scans, profile info, and analysis history |
-| 🔐 Auth System | Basic login/signup with sessions (password encryption not yet added) |
+| 📄 Bill Scanner | Uploads images or PDFs; extracts text via multi-strategy Tesseract OCR and PDF parsing; flags overpriced medicines against the Janaushadhi reference dataset |
+| 🤖 Gemini Bill Analysis | Gemini AI structures bill line items, infers pack sizes, and determines comparison basis (tablet/strip/pack/line total) with confidence scoring |
+| 💬 AI Chatbot — Lia | Context-aware Gemini chatbot; answers in English, Hindi, or Hinglish (auto-detected); supports a price-lookup mode against the Jan Aushadhi dataset; remembers recent scan and chat history |
+| 🗺️ Nearby Hospitals | Live hospital search via the Overpass API (OpenStreetMap); sorts by distance; optionally filters for Ayushman Bharat–empanelled hospitals |
+| 🏥 PM-JAY / Ayushman Bharat | Bill scans automatically generate a Gemini-powered PM-JAY coverage note for the detected treatment |
+| 🌐 Multi-language UI | Interface labels switch between English, Hindi, and Hinglish; preference is saved per user |
+| 🧾 User Dashboard | Displays scan history, estimated total savings, chat message count, and profile info |
+| 🔐 Auth System | Signup/login with Werkzeug password hashing (pbkdf2/scrypt); forgot-password OTP flow with real SMTP email delivery |
+| 📧 OTP Email | OTP is sent via Gmail SMTP; falls back to server log if email is not configured |
+| 📞 Contact Form | About page includes a contact form that emails submissions to the project address |
+
+---
+
+## ✅ What's Working Now
+
+| Feature | Status |
+|--------|--------|
+| 🔒 Password Hashing | ✅ Implemented (Werkzeug pbkdf2/scrypt) |
+| 🗺️ Live Hospital Search | ✅ Implemented via Overpass API (OpenStreetMap) |
+| 🏥 Ayushman Bharat Filter | ✅ Implemented (hospital filter + bill PM-JAY note) |
+| 📧 OTP via Email | ✅ Implemented (Gmail SMTP) |
+| 🤖 AI Bill Structuring | ✅ Gemini extracts line items from OCR text |
+| 📄 PDF Bill Support | ✅ Text-layer extraction + OCR via pypdfium2 |
+| 🌐 Multi-language Support | ✅ English / Hindi / Hinglish |
+| 💬 Context-aware Chatbot | ✅ Uses recent scan history and chat history |
 
 ---
 
 ## 🚧 Room for Improvement
 
-| Planned Feature | Current Status | Completion Target |
-|----------------|----------------|-------------------|
-| 🔒 Password Hashing | ❌ Not yet implemented | Will be added |
-| 🗺️ Google Maps API for Hospitals | ❌ Not used | Planned for future |
-| ✅ Ayushman Bharat Scheme Filter | ⚠️ Planned | In-progress |
-| 🎤 Voice Chat in Chatbot | ⚠️ Planned | Planned for future |
-| 📧 OTP via Email | ✅ Functional (console log only) | Email delivery can be added later |
+| Planned Feature | Current Status |
+|----------------|----------------|
+| 🎤 Voice Chat in Chatbot | Planned for future |
+| 🗺️ Official Ayushman Bharat Hospital List | Currently inferred from OpenStreetMap tags; official empanelment data not integrated |
+| 🔁 OTP Expiry / Rate Limiting | OTPs are session-scoped but not time-expired; rate limiting not yet added |
+| 📱 Mobile-optimised UI | Functional on mobile but not fully responsive |
 
 ---
 
 ## Project Structure
 
-<img width="213" height="213" alt="image" src="https://github.com/user-attachments/assets/9f9932eb-12eb-4b5b-bbc2-e050b904ce81" />
-
-
+```
+AyushSCAN/
+├── app.py                  # Main Flask app — routes, OCR, bill analysis, chatbot, auth
+├── products.csv            # Janaushadhi reference dataset
+├── requirements.txt
+├── .env                    # Environment variables (not committed)
+├── migrations/             # SQL migration scripts
+├── static/
+│   ├── images/
+│   ├── scripts/            # JS for dashboard, login, signup
+│   └── styles/             # CSS per page
+└── templates/              # Jinja2 HTML templates
+```
 
 ---
 
 ## 👤 Developers
 
-->Akshita Sachdeva
+→ Akshita Sachdeva
 
-->Jas Kamra
+→ Jas Kamra
 
 ---
+
 ## 🛠️ How to Run Locally
 
 ```bash
 # Clone the repository
 git clone https://github.com/JASKAMRA/AyushSCAN
-cd ayushscan
+cd AyushSCAN
 
 # (Optional) Create a virtual environment
 python -m venv venv
@@ -89,34 +118,44 @@ python app.py
 http://127.0.0.1:5000
 ```
 
+> **OCR dependency:** Tesseract must be installed separately.
+> - Windows: [https://github.com/tesseract-ocr/tesseract/releases](https://github.com/tesseract-ocr/tesseract/releases)
+> - Ubuntu: `sudo apt install tesseract-ocr`
+>
+> The app defaults to `C:\Program Files\Tesseract-OCR\tesseract.exe` on Windows. Override with `TESSERACT_CMD` in `.env`.
+
+---
+
 ## 🔐 Environment Variables (`.env`)
 
-AyushScan's image/PDF scanner and price matching work without a Google API key. A Gemini API key is optional and is used only for the AI chatbot and treatment-context notes.
+Create a `.env` file at the project root (same level as `app.py`).
 
-### 📄 Step-by-step:
+```env
+# Required for AI chatbot, bill structure extraction, and PM-JAY notes
+GOOGLE_API_KEY=your_gemini_api_key_here
 
-1. **Create a file named** `.env` at the **root** of the project (same level as `app.py`).
+# Required for OTP email and contact form
+EMAIL_ADDRESS=your_gmail_address@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
 
-2. Add the following line inside it:
+# Optional overrides
+SECRET_KEY=change-this-in-production
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+TESSERACT_LANG=eng
+GEMINI_MODEL=models/gemini-1.5-flash-latest
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+PDF_OCR_MAX_PAGES=12
+PDF_OCR_SCALE=3.5
+```
 
-   ```.env
-   GOOGLE_API_KEY=your_gemini_api_key_here
-   ```
+- Get your **Gemini API key** from [https://makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
+- For Gmail, use an **App Password** (not your account password): [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+- The app works without `GOOGLE_API_KEY` — bill scanning and price lookup still function, but Gemini-powered features fall back gracefully.
 
-3. You can get your **Google Gemini API key** from:
+### ⚠️ Important Notes
 
-   👉 [https://makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
-
-4. The key is automatically loaded using `python-dotenv` which is already included in `requirements.txt`.
+- Your `.env` file is excluded from version control via `.gitignore`.
+- **Never upload `.env` to GitHub** — keep your keys safe.
 
 ---
-
-### ⚠️ Important Notes:
-
-* Your `.env` file is **excluded from version control** using `.gitignore`.
-* **Never upload `.env` to GitHub** — keep your keys safe!
-
----
-
-
-

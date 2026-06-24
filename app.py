@@ -1,5 +1,6 @@
 # print(__file__)
 import csv
+import io
 import json
 import os
 # print("EMAIL_ADDRESS =", os.getenv("EMAIL_ADDRESS"))
@@ -16,7 +17,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -73,6 +74,22 @@ try:
     import google.generativeai as genai
 except ImportError:
     genai = None
+
+try:
+    import easyocr as _easyocr_module
+    _easyocr_cache: dict = {}
+except ImportError:
+    _easyocr_module = None
+    _easyocr_cache: dict = {}
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors as _rl_colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    _reportlab_available = True
+except ImportError:
+    _reportlab_available = False
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -394,6 +411,40 @@ def load_products():
 
 PRODUCTS = load_products()
 
+# ── Phase 5: bill-entry category keywords ────────────────────────────────────
+_CATEGORY_KEYWORDS = {
+    "lab_test": {
+        "cbc", "hemogram", "lft", "kft", "rft", "urine", "culture", "biopsy",
+        "ecg", "eeg", "mri", "ct scan", "x-ray", "xray", "ultrasound", "usg",
+        "blood test", "pathology", "lab", "serum", "thyroid", "tsh", "hba1c",
+        "glucose", "cholesterol", "lipid", "creatinine", "bilirubin", "albumin",
+        "haemoglobin", "hemoglobin", "platelet", "wbc", "rbc",
+    },
+    "consultation": {
+        "consultation", "consulting", "opd charges", "ipd charges", "visit fee",
+        "doctor fee", "physician fee", "specialist fee", "outpatient",
+        "professional fee",
+    },
+    "room_charge": {
+        "room rent", "bed charges", "ward charges", "icu charges", "nicu charges",
+        "cabin charges", "nursing charges", "accommodation", "daily charges",
+    },
+    "procedure": {
+        "surgery", "operation", "procedure", "dressing", "suture", "stitching",
+        "physiotherapy", "therapy session", "dialysis", "endoscopy", "catheter",
+        "iv administration", "nebulisation", "nebulization", "vaccination",
+    },
+    "gst": {"gst", "cgst", "sgst", "igst", "service tax"},
+}
+
+
+def categorize_entry_rule_based(text):
+    text_lower = (text or "").lower()
+    for category, keywords in _CATEGORY_KEYWORDS.items():
+        if any(kw in text_lower for kw in keywords):
+            return category
+    return "medicine"
+
 
 def find_best_product(line):
     stripped_line = preprocess_for_matching(line)
@@ -524,12 +575,24 @@ def extract_gemini_text(response):
     return ""
 
 
+_LANGUAGE_INSTRUCTIONS = {
+    "english": "IMPORTANT: Respond ONLY in clear, simple English.",
+    "hindi": (
+        "महत्वपूर्ण निर्देश: आपको पूरी तरह हिंदी में जवाब देना है। "
+        "केवल दवाओं के नाम और चिकित्सा शब्दों के लिए अंग्रेजी स्वीकार्य है। "
+        "सरल और स्पष्ट हिंदी में जवाब दें।"
+    ),
+    "hinglish": (
+        "IMPORTANT: Respond in Hinglish — a natural mix of Hindi and English written ONLY "
+        "in Roman/Latin script (no Devanagari). "
+        "Write the way young urban Indians text each other: Hindi grammar with English words mixed naturally. "
+        "Example: 'Aapka bill thoda zyada lag raha hai, reference price check karte hain.'"
+    ),
+}
+
+
 def ask_gemini(message, language, user_id=None):
-    instruction = {
-        "english": "Reply in clear English.",
-        "hindi": "Reply in simple Hindi.",
-        "hinglish": "Reply in friendly Hinglish using Roman script.",
-    }.get(language, "Reply clearly.")
+    instruction = _LANGUAGE_INSTRUCTIONS.get(language, _LANGUAGE_INSTRUCTIONS["english"])
     context_block = ""
     if user_id:
         context = get_user_scan_context(user_id)
@@ -538,6 +601,7 @@ def ask_gemini(message, language, user_id=None):
         if context["chat_context"]:
             context_block += f"\nRecent chat history:\n{context['chat_context']}\n"
     prompt = (
+        f"{instruction}\n\n"
         "You are Lia, AyushScan's careful medical billing assistant. "
         "Do not diagnose. Explain bills, medicine pricing, Jan Aushadhi comparisons, "
         "PM-JAY/Ayushman Bharat coverage, OCR scan results, and healthcare navigation safely. "
@@ -545,8 +609,7 @@ def ask_gemini(message, language, user_id=None):
         "Do not invent scan results that are not in the context. "
         "If the user asks about a medicine price, check the Janaushadhi dataset first. "
         "If you cannot find a match, say so and suggest the user try the generic name with strength. "
-        "Do not use Scan Number in the response"
-        f"{instruction}"
+        "Do not reference scan numbers in your response. "
         f"{context_block}\n\nUser: {message}"
     )
     model = get_gemini_model()
@@ -690,6 +753,38 @@ def threshold_image(image, invert=False, level=175):
     return working.point(lambda px: 255 if px >= level else 0)
 
 
+def deskew_image(image):
+    if pytesseract is None or Image is None:
+        return image
+    try:
+        osd = pytesseract.image_to_osd(image, config="--psm 0 -c min_characters_to_try=5")
+        angle_match = re.search(r"Rotate:\s*(\d+)", osd)
+        if angle_match:
+            angle = int(angle_match.group(1))
+            if angle in (90, 180, 270):
+                return image.rotate(-angle, expand=True)
+    except Exception:
+        pass
+    return image
+
+
+def _ocr_with_easyocr(image):
+    if _easyocr_module is None or Image is None:
+        return ""
+    try:
+        import numpy as np
+        key = ("en",)
+        if key not in _easyocr_cache:
+            _easyocr_cache[key] = _easyocr_module.Reader(list(key), gpu=False, verbose=False)
+        reader = _easyocr_cache[key]
+        np_image = np.array(image.convert("RGB"))
+        results = reader.readtext(np_image, detail=0, paragraph=False)
+        return clean_ocr_text("\n".join(str(r) for r in results))
+    except Exception as exc:
+        app.logger.warning("EasyOCR failed: %s", exc)
+        return ""
+
+
 def ocr_image_to_text(image):
     if pytesseract is None or Image is None:
         return ""
@@ -705,6 +800,11 @@ def ocr_image_to_text(image):
         variants.append(preprocess_image_for_ocr(image, invert=True))
     else:
         variants.append(ImageOps.invert(base))
+
+    deskewed = deskew_image(image)
+    if deskewed is not image:
+        deskew_base = preprocess_image_for_ocr(deskewed, invert=False)
+        variants.extend([deskew_base, threshold_image(deskew_base, invert=False, level=175)])
 
     configs = [
         f'--oem 3 --psm 4 -l {os.getenv("TESSERACT_LANG", "eng")}',
@@ -725,10 +825,19 @@ def ocr_image_to_text(image):
 
     if not candidates:
         try:
-            return clean_ocr_text(pytesseract.image_to_string(image, config=configs[0]))
+            fallback = clean_ocr_text(pytesseract.image_to_string(image, config=configs[0]))
         except Exception:
-            return ""
-    return max(candidates, key=ocr_quality_score)
+            fallback = ""
+        if not fallback and _easyocr_module is not None:
+            return _ocr_with_easyocr(image)
+        return fallback
+
+    best = max(candidates, key=ocr_quality_score)
+    if ocr_quality_score(best) < 80 and _easyocr_module is not None:
+        easy = _ocr_with_easyocr(image)
+        if easy and ocr_quality_score(easy) > ocr_quality_score(best):
+            return easy
+    return best
 
 
 def extract_pdf_text(file_path):
@@ -1323,6 +1432,7 @@ def analyze_bill(text):
 
     flagged = {}
     detected_items = []
+    non_medicine_items = []
     duplicates = []
     seen = {}
     low_confidence_items = 0
@@ -1335,6 +1445,17 @@ def analyze_bill(text):
             parse_source=entry.get("source", parse_source),
         )
         if not processed:
+            raw = entry["raw_line"]
+            cat = categorize_entry_rule_based(raw)
+            if cat != "medicine":
+                _, _, qty, line_total = extract_billing_info(raw)
+                if line_total and line_total > 0:
+                    non_medicine_items.append({
+                        "name": raw[:100].strip(),
+                        "category_type": cat,
+                        "quantity": qty or 1,
+                        "line_total": round(line_total, 2),
+                    })
             continue
 
         product = processed["product"]
@@ -1355,6 +1476,7 @@ def analyze_bill(text):
 
         item = {
             "name": product["generic"],
+            "category_type": "medicine",
             "brand": product["brand"] or "N/A",
             "category": product["category"] or "N/A",
             "unit": product["unit"],
@@ -1416,8 +1538,17 @@ def analyze_bill(text):
             }
 
     invalid_pricing = [item["name"] for item in detected_items if item["detected_price"] is None or item["detected_price"] <= 0]
+    category_counts: dict = {}
+    for _i in detected_items:
+        _c = _i.get("category_type", "medicine")
+        category_counts[_c] = category_counts.get(_c, 0) + 1
+    for _i in non_medicine_items:
+        _c = _i.get("category_type", "other")
+        category_counts[_c] = category_counts.get(_c, 0) + 1
     report = {
         "detected_items": detected_items,
+        "non_medicine_items": non_medicine_items,
+        "category_breakdown": category_counts,
         "duplicates": duplicates,
         "missing_medicine_detection": "No obvious medicine names were detected." if not detected_items else "",
         "invalid_pricing": invalid_pricing,
@@ -1505,6 +1636,64 @@ def fetch_overpass_hospitals(lat, lon, radius=5000):
             "map_url": f"https://www.openstreetmap.org/?mlat={hlat}&mlon={hlon}#map=16/{hlat}/{hlon}",
         })
     return sorted(hospitals, key=lambda h: h["distance"])[:20]
+
+
+def _rule_based_schemes(illness):
+    illness_lower = (illness or "").lower()
+    schemes = []
+    if any(k in illness_lower for k in ("cancer", "tumor", "oncolog", "malignant")):
+        schemes.append({
+            "name": "Rashtriya Arogya Nidhi (RAN)",
+            "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.",
+            "eligibility": "Below Poverty Line (BPL) families",
+            "website": "https://mohfw.gov.in",
+        })
+    if any(k in illness_lower for k in ("heart", "cardiac", "coronary", "bypass")):
+        schemes.append({
+            "name": "PM-JAY — Cardiac Care Package",
+            "description": "Covers cardiac surgeries, angioplasty, and related procedures up to ₹5 lakh.",
+            "eligibility": "SECC 2011 eligible families or state-nominated beneficiaries",
+            "website": "https://pmjay.gov.in",
+        })
+    if any(k in illness_lower for k in ("kidney", "renal", "dialysis", "transplant")):
+        schemes.append({
+            "name": "PM-JAY — Renal Care Package",
+            "description": "Covers kidney dialysis and renal transplants under PM-JAY.",
+            "eligibility": "SECC 2011 eligible families",
+            "website": "https://pmjay.gov.in",
+        })
+    schemes.append({
+        "name": "Ayushman Bharat PM-JAY",
+        "description": "₹5 lakh cover per year for secondary and tertiary hospitalisation.",
+        "eligibility": "Economically vulnerable families per SECC 2011 — check eligibility at pmjay.gov.in",
+        "website": "https://pmjay.gov.in",
+    })
+    return schemes[:3]
+
+
+def suggest_government_schemes(illness, flagged, report):
+    if not illness or illness in ("N/A", ""):
+        return _rule_based_schemes("")
+    try:
+        if genai is None or not os.getenv("GOOGLE_API_KEY"):
+            return _rule_based_schemes(illness)
+        flagged_names = list(flagged.keys())[:5] if flagged else []
+        prompt = (
+            "Based on the medical treatment context and flagged medicines below, "
+            "suggest up to 3 relevant Indian government health schemes the patient may be eligible for. "
+            "Include Ayushman Bharat PM-JAY if applicable. "
+            "Return ONLY valid JSON:\n"
+            '{"schemes": [{"name": "...", "description": "...", "eligibility": "...", "website": "..."}]}\n\n'
+            f"Treatment context: {illness[:500]}\n"
+            f"Flagged medicines: {', '.join(flagged_names) or 'none'}\n"
+        )
+        raw = gemini_generate_json(prompt)
+        payload = parse_json_payload(raw)
+        if isinstance(payload, dict) and isinstance(payload.get("schemes"), list) and payload["schemes"]:
+            return payload["schemes"][:3]
+    except Exception as exc:
+        app.logger.warning("Scheme suggestion failed: %s", exc)
+    return _rule_based_schemes(illness)
 
 
 @app.route("/")
@@ -1793,14 +1982,156 @@ def result(scan_id):
     if not row:
         flash("Scan not found.", "danger")
         return redirect(url_for("dashboard"))
+    flagged = json.loads(row["flagged"] or "{}")
+    report = json.loads(row["report"] or "{}")
+    illness = row["illness"] or "N/A"
+    schemes = suggest_government_schemes(illness, flagged, report)
     return render_template(
         "result.html",
-        flagged=json.loads(row["flagged"] or "{}"),
-        report=json.loads(row["report"] or "{}"),
-        illness=row["illness"] or "N/A",
+        scan_id=scan_id,
+        flagged=flagged,
+        report=report,
+        illness=illness,
         covered=row["covered"] or "N/A",
         transcript=row["text"] or "",
         scheme_info=bool(row["covered"]),
+        schemes=schemes,
+    )
+
+
+@app.route("/result/<int:scan_id>/export/csv")
+def export_scan_csv(scan_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT filename, report, illness, timestamp FROM scans WHERE id = ? AND user_id = ?",
+            (scan_id, session["user_id"]),
+        ).fetchone()
+    if not row:
+        flash("Scan not found.", "danger")
+        return redirect(url_for("dashboard"))
+    report = json.loads(row["report"] or "{}")
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["AyushScan Bill Analysis Report"])
+    writer.writerow(["File", row["filename"]])
+    writer.writerow(["Date", row["timestamp"]])
+    if row["illness"] and row["illness"] != "N/A":
+        writer.writerow(["Treatment Context", row["illness"]])
+    writer.writerow([])
+    writer.writerow(["Medicine", "Category", "Quantity", "Billed Price (Rs)",
+                     "Expected Price (Rs)", "Overpaid (Rs)", "Confidence"])
+    for item in report.get("detected_items", []):
+        writer.writerow([
+            item.get("name", ""),
+            item.get("category", item.get("category_type", "Medicine")),
+            item.get("quantity", ""),
+            item.get("billed_price", ""),
+            item.get("expected_price", ""),
+            item.get("difference", 0) if item.get("difference") is not None else 0,
+            item.get("confidence_tier", ""),
+        ])
+    if report.get("non_medicine_items"):
+        writer.writerow([])
+        writer.writerow(["Other Bill Entries", "Category", "Quantity", "Amount (Rs)"])
+        for item in report["non_medicine_items"]:
+            writer.writerow([item.get("name", ""), item.get("category_type", ""),
+                             item.get("quantity", ""), item.get("line_total", "")])
+    summary = report.get("summary", {})
+    writer.writerow([])
+    writer.writerow(["Summary"])
+    writer.writerow(["Total Medicines Detected", summary.get("total_detected", 0)])
+    writer.writerow(["Overpriced Items", summary.get("overpriced_count", 0)])
+    writer.writerow(["Estimated Savings (Rs)", summary.get("estimated_savings", 0)])
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=ayushscan_report_{scan_id}.csv"},
+    )
+
+
+@app.route("/result/<int:scan_id>/export/pdf")
+def export_scan_pdf(scan_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if not _reportlab_available:
+        flash("PDF export requires reportlab. Run: pip install reportlab", "danger")
+        return redirect(url_for("result", scan_id=scan_id))
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT filename, flagged, report, illness, covered, timestamp FROM scans WHERE id = ? AND user_id = ?",
+            (scan_id, session["user_id"]),
+        ).fetchone()
+    if not row:
+        flash("Scan not found.", "danger")
+        return redirect(url_for("dashboard"))
+    report = json.loads(row["report"] or "{}")
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    styles = getSampleStyleSheet()
+    green = _rl_colors.HexColor("#2db646")
+    elements = []
+    elements.append(Paragraph("AyushScan — Bill Analysis Report", styles["Title"]))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"<b>File:</b> {row['filename']}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Date:</b> {row['timestamp']}", styles["Normal"]))
+    if row["illness"] and row["illness"] != "N/A":
+        elements.append(Paragraph(f"<b>Treatment:</b> {row['illness'][:300]}", styles["Normal"]))
+    elements.append(Spacer(1, 10))
+    summary = report.get("summary", {})
+    elements.append(Paragraph("Summary", styles["Heading2"]))
+    sum_data = [
+        ["Total medicines detected", str(summary.get("total_detected", 0))],
+        ["Overpriced items (high/medium confidence)", str(summary.get("overpriced_count", 0))],
+        ["Estimated savings", f"Rs {summary.get('estimated_savings', 0)}"],
+    ]
+    sum_table = Table(sum_data, colWidths=[300, 180])
+    sum_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), _rl_colors.HexColor("#f0fdf4")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, _rl_colors.grey),
+        ("PADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(sum_table)
+    elements.append(Spacer(1, 10))
+    items = report.get("detected_items", [])
+    if items:
+        elements.append(Paragraph("Detected Medicines", styles["Heading2"]))
+        tdata = [["Medicine", "Qty", "Billed (Rs)", "Expected (Rs)", "Overpaid (Rs)", "Confidence"]]
+        for item in items:
+            tdata.append([
+                Paragraph(item.get("name", "")[:40], styles["Normal"]),
+                str(item.get("quantity", "")),
+                str(item.get("billed_price", "N/A")),
+                str(item.get("expected_price", "N/A")),
+                str(item.get("difference", 0) if item.get("difference") is not None else 0),
+                item.get("confidence_tier", ""),
+            ])
+        med_table = Table(tdata, colWidths=[150, 35, 65, 75, 70, 65])
+        med_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), green),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _rl_colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.5, _rl_colors.grey),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_rl_colors.white, _rl_colors.HexColor("#f8f8f8")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        elements.append(med_table)
+    if row["covered"] and row["covered"] != "N/A":
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph("Ayushman Bharat / PM-JAY Note", styles["Heading2"]))
+        elements.append(Paragraph(row["covered"][:600], styles["Normal"]))
+    doc.build(elements)
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=ayushscan_report_{scan_id}.pdf"},
     )
 
 
@@ -1843,16 +2174,83 @@ def change_password():
 
 @app.route("/forgot_password", methods=["POST"])
 def forgot_password():
-    email = request.form.get("email", "").strip().lower()
+    if request.is_json:
+        email = (request.get_json(silent=True) or {}).get("email", "").strip().lower()
+    else:
+        email = request.form.get("email", "").strip().lower()
+    if not email:
+        if request.is_json:
+            return jsonify(success=False, message="Email is required."), 400
+        return redirect(url_for("dashboard", message="Email is required."))
     with get_db_connection() as conn:
         user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if not user:
+            if request.is_json:
+                return jsonify(success=False, message="No account found with that email."), 404
             return redirect(url_for("dashboard", message="No account with that email"))
         otp = str(random.randint(100000, 999999))
-        conn.execute("INSERT OR IGNORE INTO otp_tokens (email, otp, purpose) VALUES (?, ?, ?)", (email, otp, "forgot_password"))
+        conn.execute(
+            "DELETE FROM otp_tokens WHERE email = ? AND purpose = 'forgot_password' AND used = 0",
+            (email,),
+        )
+        conn.execute(
+            "INSERT INTO otp_tokens (email, otp, purpose) VALUES (?, ?, ?)",
+            (email, otp, "forgot_password"),
+        )
         conn.commit()
     ok, message = send_otp_email(email, otp, "forgot_password")
+    if request.is_json:
+        return jsonify(success=ok, message=message)
     return redirect(url_for("dashboard", message=message if ok else message))
+
+
+@app.route("/verify_otp", methods=["POST"])
+def verify_otp():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    otp = (data.get("otp") or "").strip()
+    if not email or not otp:
+        return jsonify(success=False, message="Email and OTP are required."), 400
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """SELECT id FROM otp_tokens
+               WHERE email = ? AND otp = ? AND purpose = 'forgot_password'
+               AND used = 0
+               AND created_at >= datetime('now', '-15 minutes')""",
+            (email, otp),
+        ).fetchone()
+    if not row:
+        return jsonify(success=False, message="Invalid or expired OTP. Please request a new one."), 400
+    session["otp_verified_email"] = email
+    return jsonify(success=True, message="OTP verified. Please set your new password.")
+
+
+@app.route("/reset_password", methods=["POST"])
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    new_password = data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+    verified_email = session.get("otp_verified_email")
+    if not verified_email:
+        return jsonify(success=False, message="Session expired. Please restart the forgot password process."), 400
+    if len(new_password) < 8:
+        return jsonify(success=False, message="Password must be at least 8 characters."), 400
+    if new_password != confirm_password:
+        return jsonify(success=False, message="Passwords do not match."), 400
+    with get_db_connection() as conn:
+        result = conn.execute(
+            "UPDATE users SET password = ? WHERE email = ?",
+            (generate_password_hash(new_password), verified_email),
+        )
+        conn.execute(
+            "UPDATE otp_tokens SET used = 1 WHERE email = ? AND purpose = 'forgot_password' AND used = 0",
+            (verified_email,),
+        )
+        conn.commit()
+        if result.rowcount == 0:
+            return jsonify(success=False, message="Account not found."), 404
+    session.pop("otp_verified_email", None)
+    return jsonify(success=True, message="Password reset successfully. You can now log in with your new password.")
 
 
 @app.route("/delete_account", methods=["POST"])
