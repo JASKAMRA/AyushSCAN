@@ -1,16 +1,15 @@
-# print(__file__)
 import csv
 import io
 import json
+import logging
 import os
-# print("EMAIL_ADDRESS =", os.getenv("EMAIL_ADDRESS"))
-# print("EMAIL_PASSWORD =", os.getenv("EMAIL_PASSWORD"))
 import random
 import re
 import smtplib
 import sqlite3
 import ssl
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
@@ -102,6 +101,29 @@ load_dotenv(BASE_DIR / ".env")
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-only-change-me")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+)
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+
+# ── Simple in-process rate limiter ────────────────────────────────────────────
+_rate_limit_store: dict = {}
+
+def check_rate_limit(key: str, max_requests: int = 5, window_sec: int = 60) -> bool:
+    """Return True if the request is allowed, False if rate-limited."""
+    now = time.time()
+    hits = [t for t in _rate_limit_store.get(key, []) if now - t < window_sec]
+    if len(hits) >= max_requests:
+        return False
+    _rate_limit_store[key] = hits + [now]
+    return True
+
+# ── Allowed upload extensions ─────────────────────────────────────────────────
+_ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp", ".pdf"})
 
 if genai and os.getenv("GOOGLE_API_KEY"):
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -233,6 +255,9 @@ def init_db():
             "users": {
                 "preferred_language": "ALTER TABLE users ADD COLUMN preferred_language TEXT DEFAULT 'english'",
                 "created_at": "ALTER TABLE users ADD COLUMN created_at DATETIME",
+                "state": "ALTER TABLE users ADD COLUMN state TEXT",
+                "caste_category": "ALTER TABLE users ADD COLUMN caste_category TEXT DEFAULT 'general'",
+                "annual_income": "ALTER TABLE users ADD COLUMN annual_income TEXT DEFAULT 'not_specified'",
             },
             "scans": {
                 "illness": "ALTER TABLE scans ADD COLUMN illness TEXT",
@@ -270,13 +295,18 @@ def inject_language():
     }
 
 
-def detect_language(text):
+def detect_language(text: str) -> str:
+    """Detect message language; respects the user's stored preference for roman-script input."""
     if re.search(r"[\u0900-\u097F]", text or ""):
         return "hindi"
+    preferred = session.get("language", "english")
     words = set(re.findall(r"[a-zA-Z]+", (text or "").lower()))
     if words & HINGLISH_HINTS:
         return "hinglish"
-    return session.get("language", "english")
+    # If the user has chosen Hindi/Hinglish, keep it \u2014 they may type in Roman script.
+    if preferred in ("hindi", "hinglish") and words:
+        return preferred
+    return preferred if preferred in TRANSLATIONS else "english"
 
 
 def translate_reply(text, language):
@@ -576,22 +606,28 @@ def extract_gemini_text(response):
 
 
 _LANGUAGE_INSTRUCTIONS = {
-    "english": "IMPORTANT: Respond ONLY in clear, simple English.",
+    "english": (
+        "CRITICAL RULE: Respond ONLY in clear, simple English. "
+        "Do NOT use Hindi, Devanagari script, or Hinglish under any circumstances."
+    ),
     "hindi": (
         "महत्वपूर्ण निर्देश: आपको पूरी तरह हिंदी में जवाब देना है। "
-        "केवल दवाओं के नाम और चिकित्सा शब्दों के लिए अंग्रेजी स्वीकार्य है। "
-        "सरल और स्पष्ट हिंदी में जवाब दें।"
+        "अंग्रेजी में जवाब देना सख्त मना है — यह नियम हर परिस्थिति में लागू होता है। "
+        "केवल दवाओं के नाम और चिकित्सा शब्दों (जैसे Paracetamol, MRI) के लिए अंग्रेजी स्वीकार्य है। "
+        "सरल और स्पष्ट हिंदी में जवाब दें। "
+        "उदाहरण: 'आपकी दवाइयों की कीमत जन औषधि की तुलना में अधिक है।'"
     ),
     "hinglish": (
-        "IMPORTANT: Respond in Hinglish — a natural mix of Hindi and English written ONLY "
-        "in Roman/Latin script (no Devanagari). "
-        "Write the way young urban Indians text each other: Hindi grammar with English words mixed naturally. "
-        "Example: 'Aapka bill thoda zyada lag raha hai, reference price check karte hain.'"
+        "CRITICAL RULE: Respond ONLY in Hinglish — Roman/Latin script only (absolutely NO Devanagari). "
+        "Use Hindi grammar structure with English technical words mixed in naturally. "
+        "Do NOT reply in pure English. Do NOT use Devanagari script. "
+        "Write like a young urban Indian would text: casual, clear, helpful. "
+        "Example: 'Aapka bill thoda zyada lag raha hai — Jan Aushadhi reference se compare karte hain.'"
     ),
 }
 
 
-def ask_gemini(message, language, user_id=None):
+def ask_gemini(message: str, language: str, user_id: int = None) -> str:
     instruction = _LANGUAGE_INSTRUCTIONS.get(language, _LANGUAGE_INSTRUCTIONS["english"])
     context_block = ""
     if user_id:
@@ -607,13 +643,17 @@ def ask_gemini(message, language, user_id=None):
         "PM-JAY/Ayushman Bharat coverage, OCR scan results, and healthcare navigation safely. "
         "If the user asks why a medicine was flagged, use the scan context when available. "
         "Do not invent scan results that are not in the context. "
-        "If the user asks about a medicine price, check the Janaushadhi dataset first. "
+        "If the user asks about a medicine price, refer to the Janaushadhi dataset. "
         "If you cannot find a match, say so and suggest the user try the generic name with strength. "
         "Do not reference scan numbers in your response. "
-        f"{context_block}\n\nUser: {message}"
+        f"{context_block}"
+        f"\nUser: {message}\n\n"
+        f"REMINDER — {instruction}"
     )
-    model = get_gemini_model()
-    response = model.generate_content(prompt)
+    # Lower temperature = more deterministic language compliance
+    temperature = 0.1 if language in ("hindi", "hinglish") else 0.4
+    gen_cfg = {"temperature": temperature, "max_output_tokens": 700}
+    response = _gemini_generate_with_fallback(prompt, generation_config=gen_cfg)
     reply = extract_gemini_text(response)
     if not reply:
         raise RuntimeError("Gemini returned an empty response")
@@ -673,6 +713,8 @@ def clean_ocr_text(text):
     text = (text or "").replace("\x0c", " ")
     text = text.replace("₹", " Rs ").replace("â‚¹", " Rs ")
     text = text.replace("|", " ").replace("¦", " ")
+    # Strip dot/dash leaders used in Indian bills: "Medicine .......... Rs 120" or "Medicine -------- 120"
+    text = re.sub(r"[.\-_]{3,}", " ", text)
     text = re.sub(r"[^\S\r\n]+", " ", text)
     text = re.sub(r"\s*([,:;])\s*", r" \1 ", text)
     return "\n".join(normalize_ocr_line(line.strip()) for line in text.splitlines() if line.strip())
@@ -722,7 +764,7 @@ def ocr_quality_score(text):
     line_count = len(lines)
     receipt_rows = sum(
         1 for line in lines
-        if re.search(r"[a-zA-Z]{3,}", line) and re.search(r"\d+\.\d{1,2}\s*$", line)
+        if re.search(r"[a-zA-Z]{3,}", line) and re.search(r"(?:rs\.?\s*)?\d+(?:\.\d{1,2})?\s*$", line, re.I)
     )
     fragmented_rows = sum(1 for line in lines if re.fullmatch(r"[\d.,]+", line))
     medicine_hint_count = len(
@@ -751,6 +793,39 @@ def threshold_image(image, invert=False, level=175):
     if invert:
         working = ImageOps.invert(working)
     return working.point(lambda px: 255 if px >= level else 0)
+
+
+def preprocess_image_for_print(image):
+    """Light, clean preprocessing for printed/typed documents (receipts, bills, typed reports)."""
+    if Image is None:
+        return image
+    working = image.convert("L")
+    max_side = max(working.size)
+    if max_side < 2000:
+        scale = max(1.5, 2000 / max_side)
+        working = working.resize(
+            (int(working.width * scale), int(working.height * scale)), Image.LANCZOS
+        )
+    working = ImageOps.autocontrast(working, cutoff=1)
+    working = ImageEnhance.Contrast(working).enhance(1.5)
+    working = ImageEnhance.Sharpness(working).enhance(1.2)
+    return working
+
+
+def preprocess_image_for_handwriting(image):
+    """Stronger preprocessing tuned for handwritten text."""
+    if Image is None:
+        return image
+    working = image.convert("L")
+    max_side = max(working.size)
+    if max_side < 2200:
+        scale = max(2, int(2200 / max_side))
+        working = working.resize((working.width * scale, working.height * scale), Image.LANCZOS)
+    working = ImageOps.autocontrast(working, cutoff=3)
+    working = ImageEnhance.Contrast(working).enhance(2.8)
+    working = ImageEnhance.Sharpness(working).enhance(2.2)
+    working = working.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    return working
 
 
 def deskew_image(image):
@@ -786,58 +861,105 @@ def _ocr_with_easyocr(image):
 
 
 def ocr_image_to_text(image):
-    if pytesseract is None or Image is None:
+    if Image is None:
         return ""
 
-    base = preprocess_image_for_ocr(image, invert=False)
-    variants = [
-        base,
-        threshold_image(base, invert=False, level=175),
-        threshold_image(base, invert=True, level=175),
-        image,
-    ]
-    if ImageStat.Stat(base).mean[0] < 140:
-        variants.append(preprocess_image_for_ocr(image, invert=True))
-    else:
-        variants.append(ImageOps.invert(base))
-
-    deskewed = deskew_image(image)
-    if deskewed is not image:
-        deskew_base = preprocess_image_for_ocr(deskewed, invert=False)
-        variants.extend([deskew_base, threshold_image(deskew_base, invert=False, level=175)])
-
-    configs = [
-        f'--oem 3 --psm 4 -l {os.getenv("TESSERACT_LANG", "eng")}',
-        f'--oem 3 --psm 6 -l {os.getenv("TESSERACT_LANG", "eng")}',
-        f'--oem 3 --psm 11 -l {os.getenv("TESSERACT_LANG", "eng")}',
-    ]
-
+    lang = os.getenv("TESSERACT_LANG", "eng")
     candidates = []
-    for prepared in variants:
-        for config in configs:
+
+    if pytesseract is not None:
+        # ── Fast path: printed/typed document (receipts, computer-generated bills) ──
+        print_img = preprocess_image_for_print(image)
+        fast_configs = [
+            f"--oem 3 --psm 6 -l {lang}",   # uniform text block
+            f"--oem 3 --psm 4 -l {lang}",   # single column with varying text sizes
+            f"--oem 3 --psm 3 -l {lang}",   # fully automatic (best for unknown layouts)
+            f"--oem 1 --psm 6 -l {lang}",   # LSTM only
+        ]
+        for config in fast_configs:
             try:
-                text = pytesseract.image_to_string(prepared, config=config)
+                text = pytesseract.image_to_string(print_img, config=config)
             except Exception:
                 continue
             cleaned = clean_ocr_text(text)
             if cleaned:
                 candidates.append(cleaned)
 
-    if not candidates:
-        try:
-            fallback = clean_ocr_text(pytesseract.image_to_string(image, config=configs[0]))
-        except Exception:
-            fallback = ""
-        if not fallback and _easyocr_module is not None:
-            return _ocr_with_easyocr(image)
-        return fallback
+        # If the fast path already gives a good result, skip the expensive pipeline
+        fast_best = max(candidates, key=ocr_quality_score) if candidates else ""
+        if ocr_quality_score(fast_best) > 120:
+            # Also try the raw image in case preprocessing hurt (dark backgrounds etc.)
+            for config in fast_configs[:2]:
+                try:
+                    text = pytesseract.image_to_string(image, config=config)
+                except Exception:
+                    continue
+                cleaned = clean_ocr_text(text)
+                if cleaned:
+                    candidates.append(cleaned)
+            if _easyocr_module is not None:
+                easy = _ocr_with_easyocr(image)
+                if easy:
+                    candidates.append(easy)
+            return max(candidates, key=ocr_quality_score)
 
-    best = max(candidates, key=ocr_quality_score)
-    if ocr_quality_score(best) < 80 and _easyocr_module is not None:
+        # ── Full pipeline: low-quality scan, photo, or handwritten document ─────────
+        base     = preprocess_image_for_ocr(image, invert=False)
+        hw       = preprocess_image_for_handwriting(image)
+        deskewed = deskew_image(image)
+
+        variants = [
+            print_img,
+            base,
+            threshold_image(base, invert=False, level=175),
+            threshold_image(base, invert=True,  level=175),
+            image,
+            hw,
+            threshold_image(hw, invert=False, level=160),
+        ]
+        mean_brightness = ImageStat.Stat(base).mean[0]
+        if mean_brightness < 140:
+            variants.append(preprocess_image_for_ocr(image, invert=True))
+        else:
+            variants.append(ImageOps.invert(base))
+
+        if deskewed is not image:
+            deskew_base = preprocess_image_for_ocr(deskewed, invert=False)
+            variants.extend([
+                preprocess_image_for_print(deskewed),
+                deskew_base,
+                threshold_image(deskew_base, invert=False, level=175),
+            ])
+
+        configs = [
+            f"--oem 3 --psm 6 -l {lang}",
+            f"--oem 3 --psm 4 -l {lang}",
+            f"--oem 3 --psm 3 -l {lang}",
+            f"--oem 3 --psm 11 -l {lang}",
+            f"--oem 1 --psm 6 -l {lang}",
+            f"--oem 1 --psm 4 -l {lang}",
+        ]
+
+        for prepared in variants:
+            for config in configs:
+                try:
+                    text = pytesseract.image_to_string(prepared, config=config)
+                except Exception:
+                    continue
+                cleaned = clean_ocr_text(text)
+                if cleaned:
+                    candidates.append(cleaned)
+
+    # ── EasyOCR always runs — handles handwriting and low-quality photos well ──
+    if _easyocr_module is not None:
         easy = _ocr_with_easyocr(image)
-        if easy and ocr_quality_score(easy) > ocr_quality_score(best):
-            return easy
-    return best
+        if easy:
+            candidates.append(easy)
+
+    if not candidates:
+        return ""
+
+    return max(candidates, key=ocr_quality_score)
 
 
 def extract_pdf_text(file_path):
@@ -901,23 +1023,64 @@ def extract_pdf_text(file_path):
 
 
 ALLOWED_COMPARISON_BASES = frozenset({"tablet", "strip", "pack", "line_total", "unknown"})
-STRUCTURE_CONFIDENCE_THRESHOLD = 0.6
-LOW_CONFIDENCE_THRESHOLD = 0.6
-HIGH_CONFIDENCE_THRESHOLD = 0.8
+STRUCTURE_CONFIDENCE_THRESHOLD = 0.55
+LOW_CONFIDENCE_THRESHOLD = 0.50   # was 0.6 — rule-based results were unfairly "low"
+HIGH_CONFIDENCE_THRESHOLD = 0.75
 
 
-def get_gemini_model():
+_GEMINI_FALLBACK_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+]
+
+
+def get_gemini_model(model_name=None):
     if genai is None:
         raise RuntimeError("google-generativeai is not installed")
     if not os.getenv("GOOGLE_API_KEY"):
         raise RuntimeError("GOOGLE_API_KEY is not configured")
-    return genai.GenerativeModel(os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash-latest"))
+    name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    return genai.GenerativeModel(name)
+
+
+def _gemini_generate_with_fallback(prompt, generation_config=None):
+    """Try the configured model, cascade through fallbacks on quota/timeout errors."""
+    primary = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    models_to_try = [primary] + [m for m in _GEMINI_FALLBACK_MODELS if m != primary]
+    last_exc = None
+    for attempt, model_name in enumerate(models_to_try):
+        try:
+            model = get_gemini_model(model_name)
+            kwargs: dict = {}
+            if generation_config:
+                kwargs["generation_config"] = generation_config
+            try:
+                return model.generate_content(prompt, request_options={"timeout": 28}, **kwargs)
+            except TypeError:
+                return model.generate_content(prompt, **kwargs)
+        except Exception as exc:
+            last_exc = exc
+            err = str(exc).lower()
+            is_quota = any(k in err for k in ("429", "quota", "rate limit", "resource_exhausted"))
+            is_timeout = any(k in err for k in ("timeout", "deadline exceeded", "timed out"))
+            if is_quota:
+                wait = min(2 ** attempt, 10)
+                app.logger.warning("Quota on %s (attempt %d), backing off %ds. %s", model_name, attempt + 1, wait, exc)
+                time.sleep(wait)
+                continue
+            if is_timeout:
+                app.logger.warning("Timeout on %s, trying next model.", model_name)
+                time.sleep(1)
+                continue
+            raise
+    raise last_exc
 
 
 def gemini_generate_json(prompt):
-    model = get_gemini_model()
     generation_config = {"response_mime_type": "application/json"}
-    response = model.generate_content(prompt, generation_config=generation_config)
+    response = _gemini_generate_with_fallback(prompt, generation_config=generation_config)
     if not response or not getattr(response, "text", None):
         return None
     return response.text.strip()
@@ -1184,8 +1347,8 @@ def fallback_commercial_interpretation(unit_price, line_total, quantity, refs):
             best_basis = basis
     return {
         "comparison_basis": best_basis,
-        "confidence": 0.45,
-        "reasoning": "Rule-based fallback: closest reference price match selected because AI interpretation was unavailable.",
+        "confidence": 0.60,
+        "reasoning": "Rule-based fallback: closest reference price match selected.",
     }
 
 
@@ -1512,6 +1675,11 @@ def analyze_bill(text):
                 if price_type == "calculated_unit_price" and line_total is not None
                 else "Compared using detected unit price"
             ),
+            "jan_aushadhi_note": (
+                f"{product['generic']} is available at Jan Aushadhi Kendras at "
+                f"Rs {refs['per_tablet_price']:.2f} per unit (CSV MRP: Rs {refs['csv_mrp']:.2f})."
+            ) if refs.get("per_tablet_price") and refs["per_tablet_price"] > 0 else "",
+            "jan_aushadhi_savings": max(round(pricing["total_difference"], 2), 0) if pricing.get("total_difference") else 0,
         }
         detected_items.append(item)
 
@@ -1571,16 +1739,15 @@ def analyze_bill(text):
 
 def gemini_bill_context(text):
     try:
-        model = get_gemini_model()
         prompt = (
             "Review this medical bill OCR text. In two short paragraphs, say likely treatment category "
             "and whether common items may be covered under Ayushman Bharat PM-JAY. Avoid firm diagnosis.\n\n"
             f"{text[:5000]}"
         )
-        analysis = extract_gemini_text(model.generate_content(prompt))
+        analysis = extract_gemini_text(_gemini_generate_with_fallback(prompt))
         if not analysis:
             raise RuntimeError("Gemini returned an empty bill analysis")
-        ayushman = extract_gemini_text(model.generate_content(
+        ayushman = extract_gemini_text(_gemini_generate_with_fallback(
             "From this analysis, give a cautious PM-JAY coverage note in 2-3 lines:\n" + analysis[:2000]
         ))
         illness = analysis.splitlines()[0] if analysis else "N/A"
@@ -1638,62 +1805,140 @@ def fetch_overpass_hospitals(lat, lon, radius=5000):
     return sorted(hospitals, key=lambda h: h["distance"])[:20]
 
 
-def _rule_based_schemes(illness):
+# State-specific scheme database
+_STATE_SCHEMES = {
+    "maharashtra": {"name": "Mahatma Jyotiba Phule Jan Arogya Yojana", "description": "₹5 lakh cover for 1000+ procedures in Maharashtra empanelled hospitals.", "eligibility": "Maharashtra residents — yellow/orange/white ration card holders", "website": "https://www.jeevandayee.gov.in/"},
+    "tamil nadu": {"name": "CM Comprehensive Health Insurance (CMCHIS)", "description": "₹5 lakh coverage per year for government hospital treatment in TN.", "eligibility": "Tamil Nadu families with income below ₹72,000/year", "website": "https://www.cmchistn.com/"},
+    "karnataka": {"name": "Arogya Karnataka", "description": "Free treatment up to ₹5 lakh in government hospitals in Karnataka.", "eligibility": "Karnataka residents below ₹1.5 lakh annual income", "website": "https://arogyakarnataka.gov.in/"},
+    "west bengal": {"name": "Swasthya Sathi", "description": "₹5 lakh health cover per family per year across all Bengal government hospitals.", "eligibility": "All West Bengal families — no income bar", "website": "https://swasthyasathi.gov.in/"},
+    "telangana": {"name": "Aarogyasri (Telangana)", "description": "Covers 3,000+ medical procedures for BPL families in Telangana.", "eligibility": "BPL ration card holders in Telangana", "website": "https://www.aarogyasri.telangana.gov.in/"},
+    "andhra pradesh": {"name": "YSR Aarogyasri", "description": "₹5 lakh health cover per year for eligible AP families.", "eligibility": "Families with white or yellow ration card in Andhra Pradesh", "website": "https://ysrarogyasri.ap.gov.in/"},
+    "rajasthan": {"name": "Chiranjeevi Swasthya Bima Yojana", "description": "₹25 lakh cashless cover at empanelled hospitals in Rajasthan.", "eligibility": "All Rajasthan families — free for BPL/small farmers", "website": "https://chiranjeevi.rajasthan.gov.in/"},
+    "gujarat": {"name": "Mukhyamantri Amrutum (MA) Yojana", "description": "₹5 lakh health cover for secondary and tertiary care in Gujarat.", "eligibility": "Gujarat families with income below ₹1.20 lakh/year", "website": "https://magmayojana.gujarat.gov.in/"},
+    "delhi": {"name": "Delhi Arogya Kosh", "description": "Free treatment at Delhi government hospitals; covers major surgeries.", "eligibility": "Delhi residents — BPL families prioritised", "website": "https://delhigovt.nic.in/"},
+    "kerala": {"name": "Karunya Arogya Suraksha Padhathi", "description": "₹5 lakh per family per year for BPL families in Kerala.", "eligibility": "Kerala BPL families — below poverty line card holders", "website": "https://kasp.kerala.gov.in/"},
+}
+
+_CASTE_SCHEMES = {
+    "sc": {"name": "National SC/ST Health Scheme (MoSJE)", "description": "Additional health benefits and waiver of co-payment under PM-JAY for SC families.", "eligibility": "Scheduled Caste families — caste certificate required", "website": "https://socialjustice.gov.in/"},
+    "st": {"name": "Tribal Health Mission", "description": "Dedicated health centres and PM-JAY priority enrolment for Scheduled Tribe families.", "eligibility": "Scheduled Tribe families — tribal certificate required", "website": "https://tribal.nic.in/"},
+    "ews": {"name": "EWS Health Coverage under PM-JAY", "description": "Economically Weaker Sections can access PM-JAY benefits with an EWS certificate.", "eligibility": "Annual income below ₹8 lakh — EWS certificate from tehsildar required", "website": "https://nha.gov.in/"},
+}
+
+
+def _rule_based_schemes(illness, user_profile=None):
     illness_lower = (illness or "").lower()
+    profile = user_profile or {}
+    state = (profile.get("state") or "").lower().strip().replace("_", " ")
+    caste = (profile.get("caste_category") or "general").lower()
+    income = (profile.get("annual_income") or "not_specified").lower()
     schemes = []
+
+    # ── Disease-specific central schemes ─────────────────────────────────────
     if any(k in illness_lower for k in ("cancer", "tumor", "oncolog", "malignant")):
-        schemes.append({
-            "name": "Rashtriya Arogya Nidhi (RAN)",
-            "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.",
-            "eligibility": "Below Poverty Line (BPL) families",
-            "website": "https://mohfw.gov.in",
-        })
+        schemes.append({"name": "Rashtriya Arogya Nidhi (RAN)", "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.", "eligibility": "Below Poverty Line (BPL) families — apply via district hospital", "website": "https://mohfw.gov.in/schemes-and-programmes"})
     if any(k in illness_lower for k in ("heart", "cardiac", "coronary", "bypass")):
-        schemes.append({
-            "name": "PM-JAY — Cardiac Care Package",
-            "description": "Covers cardiac surgeries, angioplasty, and related procedures up to ₹5 lakh.",
-            "eligibility": "SECC 2011 eligible families or state-nominated beneficiaries",
-            "website": "https://pmjay.gov.in",
-        })
+        schemes.append({"name": "PM-JAY — Cardiac Care Package", "description": "Covers cardiac surgeries, angioplasty, and related procedures up to ₹5 lakh.", "eligibility": "SECC 2011 eligible or state-nominated beneficiaries — check eligibility online", "website": "https://nha.gov.in/"})
     if any(k in illness_lower for k in ("kidney", "renal", "dialysis", "transplant")):
-        schemes.append({
-            "name": "PM-JAY — Renal Care Package",
-            "description": "Covers kidney dialysis and renal transplants under PM-JAY.",
-            "eligibility": "SECC 2011 eligible families",
-            "website": "https://pmjay.gov.in",
-        })
+        schemes.append({"name": "PM-JAY — Renal Care Package", "description": "Covers kidney dialysis and renal transplants; free at all PM-JAY empanelled hospitals.", "eligibility": "SECC 2011 eligible families — verify at nha.gov.in", "website": "https://nha.gov.in/"})
+    if any(k in illness_lower for k in ("maternal", "delivery", "pregnancy", "antenatal", "prenatal")):
+        schemes.append({"name": "Pradhan Mantri Matru Vandana Yojana (PMMVY)", "description": "₹5,000 cash benefit for first live birth — covers ante-natal care and nutrition.", "eligibility": "Pregnant and lactating women for first live birth", "website": "https://wcd.nic.in/schemes/pradhan-mantri-matru-vandana-yojana"})
+
+    # ── Caste-based additions ─────────────────────────────────────────────────
+    if caste in ("sc", "st", "ews") and caste in _CASTE_SCHEMES:
+        schemes.append(_CASTE_SCHEMES[caste])
+
+    # ── State-specific scheme ─────────────────────────────────────────────────
+    if state and state in _STATE_SCHEMES:
+        schemes.append(_STATE_SCHEMES[state])
+
+    # ── Income-based eligibility note ─────────────────────────────────────────
+    income_label = ""
+    if income in ("below_1lakh", "1_2lakh"):
+        income_label = "Your income range makes you likely eligible for PM-JAY. Check at nha.gov.in."
+    elif income in ("2_5lakh",):
+        income_label = "You may qualify for state-specific schemes. Check with your district hospital."
+
+    # ── PM-JAY always included ────────────────────────────────────────────────
     schemes.append({
         "name": "Ayushman Bharat PM-JAY",
-        "description": "₹5 lakh cover per year for secondary and tertiary hospitalisation.",
-        "eligibility": "Economically vulnerable families per SECC 2011 — check eligibility at pmjay.gov.in",
-        "website": "https://pmjay.gov.in",
+        "description": f"₹5 lakh cover per year for secondary and tertiary hospitalisation.{' ' + income_label if income_label else ''}",
+        "eligibility": "SECC 2011 families and state-nominated beneficiaries — verify eligibility online",
+        "website": "https://nha.gov.in/",
     })
-    return schemes[:3]
+    # Deduplicate by name
+    seen_names: set = set()
+    unique: list = []
+    for s in schemes:
+        if s["name"] not in seen_names:
+            seen_names.add(s["name"])
+            unique.append(s)
+    return unique[:4]
 
 
-def suggest_government_schemes(illness, flagged, report):
+def suggest_government_schemes(illness, flagged, report, user_profile=None):
     if not illness or illness in ("N/A", ""):
-        return _rule_based_schemes("")
+        return _rule_based_schemes("", user_profile)
     try:
         if genai is None or not os.getenv("GOOGLE_API_KEY"):
-            return _rule_based_schemes(illness)
+            return _rule_based_schemes(illness, user_profile)
+        profile = user_profile or {}
+        state = profile.get("state", "")
+        caste = profile.get("caste_category", "general")
+        income = profile.get("annual_income", "not_specified")
         flagged_names = list(flagged.keys())[:5] if flagged else []
         prompt = (
-            "Based on the medical treatment context and flagged medicines below, "
-            "suggest up to 3 relevant Indian government health schemes the patient may be eligible for. "
-            "Include Ayushman Bharat PM-JAY if applicable. "
+            "Based on the patient profile and medical context below, suggest up to 3 relevant "
+            "Indian government health schemes the patient may be eligible for. "
+            "Include Ayushman Bharat PM-JAY if applicable. Use accurate, working government website URLs. "
             "Return ONLY valid JSON:\n"
-            '{"schemes": [{"name": "...", "description": "...", "eligibility": "...", "website": "..."}]}\n\n'
-            f"Treatment context: {illness[:500]}\n"
+            '{"schemes": [{"name": "...", "description": "...", "eligibility": "...", "website": "https://..."}]}\n\n'
+            f"State: {state or 'not specified'}\n"
+            f"Caste category: {caste}\n"
+            f"Annual income: {income}\n"
+            f"Treatment context: {illness[:400]}\n"
             f"Flagged medicines: {', '.join(flagged_names) or 'none'}\n"
         )
         raw = gemini_generate_json(prompt)
         payload = parse_json_payload(raw)
         if isinstance(payload, dict) and isinstance(payload.get("schemes"), list) and payload["schemes"]:
-            return payload["schemes"][:3]
+            gemini_schemes = [s for s in payload["schemes"][:3] if isinstance(s, dict) and s.get("name")]
+            if gemini_schemes:
+                return gemini_schemes
     except Exception as exc:
         app.logger.warning("Scheme suggestion failed: %s", exc)
-    return _rule_based_schemes(illness)
+    return _rule_based_schemes(illness, user_profile)
+
+
+@app.route("/api/status")
+def api_status():
+    key = os.getenv("GOOGLE_API_KEY", "")
+    key_ok = bool(key and len(key) > 10)
+    email_ok = bool(os.getenv("EMAIL_ADDRESS") and os.getenv("EMAIL_PASSWORD"))
+    gemini_test = ""
+    if genai and key_ok:
+        try:
+            model = get_gemini_model()
+            model.generate_content("ping")
+            gemini_test = "ok"
+        except Exception as exc:
+            gemini_test = str(exc)
+    elif not key:
+        gemini_test = "GOOGLE_API_KEY not set"
+    elif not key_ok:
+        gemini_test = "GOOGLE_API_KEY too short — check your .env"
+    else:
+        gemini_test = "google-generativeai not installed"
+    return jsonify({
+        "google_api_key_set": bool(key),
+        "google_api_key_format_ok": key_ok,
+        "google_api_key_hint": f"{key[:6]}…" if key else "not set",
+        "gemini_model": os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        "gemini_ping": gemini_test,
+        "email_configured": email_ok,
+        "tesseract_path": os.getenv("TESSERACT_CMD", "default"),
+        "products_loaded": len(PRODUCTS),
+    })
 
 
 @app.route("/")
@@ -1704,55 +1949,34 @@ def index():
 @app.route("/about")
 def about():
     return render_template("about.html")
-# @app.route("/about")
-# def about():
-#     return "ABOUT ROUTE TEST"
 
 
 @app.route("/contact", methods=["POST"])
 def contact():
-    print("CONTACT ROUTE HIT")
-
-    name = request.form.get("name")
-    email = request.form.get("email")
-    message = request.form.get("message")
-
-    print(name, email, message)
+    name = (request.form.get("name") or "").strip()[:200]
+    email = (request.form.get("email") or "").strip()[:200]
+    message = (request.form.get("message") or "").strip()[:2000]
 
     sender = os.getenv("EMAIL_ADDRESS")
     password = os.getenv("EMAIL_PASSWORD")
+    if not sender or not password:
+        flash("Contact form is not configured. Please email us directly.", "danger")
+        return redirect(url_for("about"))
 
     try:
         msg = EmailMessage()
         msg["Subject"] = f"AyushScan Contact - {name}"
         msg["From"] = sender
         msg["To"] = sender
-
-        msg.set_content(
-            f"""
-Name: {name}
-Email: {email}
-
-Message:
-{message}
-"""
-        )
-
-        print("Connecting SMTP...")
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        msg.set_content(f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}")
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
             smtp.login(sender, password)
-            print("SMTP LOGIN SUCCESS")
-
             smtp.send_message(msg)
-            print("EMAIL SENT SUCCESSFULLY")
-
+        app.logger.info("Contact form submitted from %s", email)
         flash("Message sent successfully!", "success")
-
-    except Exception as e:
-        print("EMAIL ERROR:")
-        print(repr(e))
-        flash(str(e), "danger")
+    except Exception as exc:
+        app.logger.exception("Contact form email failed")
+        flash("Could not send message. Please try again later.", "danger")
 
     return redirect(url_for("about"))
 
@@ -1792,6 +2016,9 @@ def login():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
+    # Rate limit: 10 login attempts per email per minute
+    if not check_rate_limit(f"login:{email}", max_requests=10, window_sec=60):
+        return jsonify(success=False, message="Too many login attempts. Please wait 1 minute."), 429
     with get_db_connection() as conn:
         user = conn.execute("SELECT id, password, preferred_language FROM users WHERE email = ?", (email,)).fetchone()
         if user and is_password_valid(user["password"], password):
@@ -1827,8 +2054,11 @@ def dashboard():
         return redirect(url_for("login"))
     user_id = session["user_id"]
     with get_db_connection() as conn:
-        user = conn.execute("SELECT username, email, first_name, last_name, preferred_language FROM users WHERE id = ?", (user_id,)).fetchone()
-        scans = conn.execute("SELECT id, filename, flagged, savings, timestamp FROM scans WHERE user_id = ? ORDER BY timestamp DESC", (user_id,)).fetchall()
+        user = conn.execute(
+            "SELECT username, email, first_name, last_name, preferred_language, state, caste_category, annual_income FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        scans = conn.execute("SELECT id, filename, flagged, savings, timestamp FROM scans WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50", (user_id,)).fetchall()
         chat_count = conn.execute("SELECT COUNT(*) FROM chat_history WHERE user_id = ?", (user_id,)).fetchone()[0]
         savings = conn.execute("SELECT COALESCE(SUM(savings), 0) FROM scans WHERE user_id = ?", (user_id,)).fetchone()[0]
     metrics = {
@@ -1867,6 +2097,7 @@ def chatbot_message():
 
     source = "fallback"
     reply = ""
+    error_reason = ""
     try:
         if mode == "price":
             reply = find_medicine_price(user_input)
@@ -1878,7 +2109,8 @@ def chatbot_message():
             reply = ask_gemini(user_input, language, user_id=session["user_id"])
             source = "gemini"
     except Exception as exc:
-        app.logger.warning("Chatbot fallback: %s", exc)
+        error_reason = str(exc)
+        app.logger.warning("Chatbot fallback (%s): %s", type(exc).__name__, exc)
         reply = fallback_chat_response(user_input, language, mode)
         source = "fallback"
 
@@ -1889,6 +2121,7 @@ def chatbot_message():
         language=language,
         mode=mode,
         source=source,
+        error_reason=error_reason if source == "fallback" else "",
     )
 
 
@@ -1913,9 +2146,20 @@ def hospitals_nearby():
 def scan():
     if "user_id" not in session:
         return jsonify(success=False, message="Unauthorized access"), 401
+
+    # Rate limit: 15 scans per user per minute
+    if not check_rate_limit(f"scan:{session['user_id']}", max_requests=15, window_sec=60):
+        return jsonify(success=False, message="Too many scans. Please wait a moment before trying again."), 429
+
     file = request.files.get("file")
     if not file or not file.filename:
         return jsonify(success=False, message="No file selected"), 400
+
+    # Extension whitelist
+    suffix = Path(secure_filename(file.filename)).suffix.lower()
+    if suffix not in _ALLOWED_EXTENSIONS:
+        return jsonify(success=False, message="Unsupported file type. Please upload a JPG, PNG, or PDF."), 400
+
     filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(file.filename)}"
     file_path = UPLOAD_FOLDER / filename
     file.save(file_path)
@@ -1985,7 +2229,13 @@ def result(scan_id):
     flagged = json.loads(row["flagged"] or "{}")
     report = json.loads(row["report"] or "{}")
     illness = row["illness"] or "N/A"
-    schemes = suggest_government_schemes(illness, flagged, report)
+    with get_db_connection() as conn:
+        uprofile = conn.execute(
+            "SELECT state, caste_category, annual_income FROM users WHERE id = ?",
+            (session["user_id"],),
+        ).fetchone()
+    user_profile = dict(uprofile) if uprofile else {}
+    schemes = suggest_government_schemes(illness, flagged, report, user_profile)
     return render_template(
         "result.html",
         scan_id=scan_id,
@@ -2139,11 +2389,27 @@ def export_scan_pdf(scan_id):
 def update_profile():
     if "user_id" not in session:
         return redirect(url_for("login"))
+    allowed_incomes = {"not_specified", "below_1lakh", "1_2lakh", "2_5lakh", "above_5lakh"}
+    allowed_castes = {"general", "obc", "sc", "st", "ews"}
+    income = request.form.get("annual_income", "not_specified")
+    caste = request.form.get("caste_category", "general")
+    if income not in allowed_incomes:
+        income = "not_specified"
+    if caste not in allowed_castes:
+        caste = "general"
     try:
         with get_db_connection() as conn:
             conn.execute(
-                "UPDATE users SET first_name = ?, last_name = ?, username = ? WHERE id = ?",
-                (request.form.get("first_name"), request.form.get("last_name"), request.form.get("username"), session["user_id"]),
+                "UPDATE users SET first_name=?, last_name=?, username=?, state=?, caste_category=?, annual_income=? WHERE id=?",
+                (
+                    (request.form.get("first_name") or "").strip()[:100],
+                    (request.form.get("last_name") or "").strip()[:100],
+                    (request.form.get("username") or "").strip()[:50],
+                    (request.form.get("state") or "").strip()[:100],
+                    caste,
+                    income,
+                    session["user_id"],
+                ),
             )
             conn.commit()
         return redirect(url_for("dashboard", message="Profile updated successfully"))
@@ -2182,6 +2448,14 @@ def forgot_password():
         if request.is_json:
             return jsonify(success=False, message="Email is required."), 400
         return redirect(url_for("dashboard", message="Email is required."))
+
+    # Rate limit: 5 OTP requests per email per 5 minutes
+    if not check_rate_limit(f"otp:{email}", max_requests=5, window_sec=300):
+        msg = "Too many OTP requests. Please wait 5 minutes before requesting a new one."
+        if request.is_json:
+            return jsonify(success=False, message=msg), 429
+        return redirect(url_for("dashboard", message=msg))
+
     with get_db_connection() as conn:
         user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if not user:

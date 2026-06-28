@@ -122,3 +122,213 @@ th {
 .btn-back:hover {
   background-color: #249e3a;
 }
+
+/* Phase 6 — export bar */
+.export-bar {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-export {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.btn-export:hover {
+  background: #1e40af;
+}
+
+/* Phase 5 — category chips */
+.category-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.category-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.88rem;
+}
+
+.chip-label {
+  color: #166534;
+  font-weight: 500;
+}
+
+.chip-count {
+  background: #2db646;
+  color: #fff;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Phase 7 — scheme cards */
+.scheme-card {
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-left: 4px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.scheme-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0c4a6e;
+  margin-bottom: 0.35rem;
+}
+
+.scheme-desc {
+  font-size: 0.92rem;
+  color: #374151;
+  margin: 0 0 0.3rem;
+}
+
+.scheme-elig {
+  font-size: 0.88rem;
+  color: #6b7280;
+  margin: 0 0 0.5rem;
+}
+
+.scheme-link {
+  font-size: 0.88rem;
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.scheme-link:hover {
+  text-decoration: underline;
+}
+
+/* illness-section reuse for other tables */
+.illness-section table {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* Mobile scroll wrapper for wide tables */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Jan Aushadhi inline note */
+.ja-note {
+  color: #0369a1;
+  font-size: 0.78rem;
+  display: block;
+  margin-top: 3px;
+}
+
+/* Jan Aushadhi savings banner */
+.ja-banner {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 0 auto 1.5rem;
+  max-width: 920px;
+}
+
+.ja-banner .ja-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.ja-banner strong {
+  display: block;
+  color: #0c4a6e;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.ja-banner p {
+  font-size: 0.9rem;
+  color: #374151;
+  margin: 0;
+}
+
+.ja-banner a {
+  color: #0369a1;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 0.5rem;
+}
+
+.ja-banner a:hover {
+  text-decoration: underline;
+}
+
+/* ── Mobile responsiveness ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body {
+    padding: 1rem;
+  }
+
+  h2 {
+    font-size: 1.4rem;
+  }
+
+  table {
+    font-size: 0.8rem;
+    min-width: 600px;
+  }
+
+  th, td {
+    padding: 10px 8px;
+  }
+
+  .export-bar {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn-export {
+    width: 100%;
+    max-width: 260px;
+    text-align: center;
+  }
+
+  .ja-banner {
+    flex-direction: column;
+  }
+
+  .scheme-card {
+    padding: 0.75rem 1rem;
+  }
+
+  .category-chip {
+    padding: 5px 10px;
+    font-size: 0.82rem;
+  }
+}

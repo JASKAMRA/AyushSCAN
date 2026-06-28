@@ -16,12 +16,17 @@
       button, select { padding:10px 14px; border:0; border-radius:6px; cursor:pointer; }
       button { background:#2563eb; color:white; }
       .secondary { background:#e2e8f0; color:#0f172a; }
-      .mode-buttons { display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; }
+      .mode-buttons { display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; align-items:center; }
       .mode-btn { background:#e5e7eb; color:#111827; font-weight:600; }
       .mode-btn.selected { background:#2563eb; color:white; }
       .loading { color:#64748b; font-style:italic; }
       .history { max-height:56vh; overflow-y:auto; padding:12px; border:1px solid #e5e7eb; border-radius:8px; background:#f8fafc; }
       a { color:#2563eb; text-decoration:none; font-weight:600; }
+      #voiceLangSelect {
+        padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px;
+        background:#f8fafc; color:#0f172a; font-size:0.9rem; cursor:pointer;
+      }
+      .voice-hint { font-size:0.78rem; color:#64748b; margin-left:4px; }
     </style>
   </head>
   <body>
@@ -34,8 +39,14 @@
       <div class="mode-buttons">
         <button class="mode-btn" type="button" onclick="setMode('price')">Medicine Price</button>
         <button class="mode-btn selected" type="button" onclick="setMode('gemini')">Ask AI</button>
-        <button class="secondary" type="button" id="listenBtn">Listen</button>
-        <button class="secondary" type="button" id="speakToggle">Speech On</button>
+        <button class="secondary" type="button" id="listenBtn">&#127908; Listen</button>
+        <button class="secondary" type="button" id="speakToggle">&#128266; Speech On</button>
+        <select id="voiceLangSelect" title="Voice language for mic &amp; speech">
+          <option value="auto">&#127760; Auto</option>
+          <option value="en">&#127464;&#127475; English</option>
+          <option value="hi">&#127470;&#127475; Hindi</option>
+        </select>
+        <span class="voice-hint" id="voiceHint"></span>
       </div>
 
       <div id="messages" class="history">
@@ -55,15 +66,77 @@
     <script>
       let selectedMode = "gemini";
       let speechEnabled = true;
-      const messages = document.getElementById("messages");
-      const input = document.getElementById("userInput");
+      let currentLang = "{{ lang }}";   // updated after every AI reply
+      const messages    = document.getElementById("messages");
+      const input       = document.getElementById("userInput");
+      const listenBtn   = document.getElementById("listenBtn");
+      const speakToggle = document.getElementById("speakToggle");
+      const voiceSel    = document.getElementById("voiceLangSelect");
+      const voiceHint   = document.getElementById("voiceHint");
 
+      // ── voice list (loaded async in some browsers) ────────────────────
+      let voices = [];
+      function loadVoices() {
+        voices = window.speechSynthesis.getVoices();
+        updateVoiceHint();
+      }
+      if ("speechSynthesis" in window) {
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+
+      // Show which Hindi voice (if any) was found
+      function updateVoiceHint() {
+        const hv = _bestVoice("hindi");
+        if (hv) {
+          voiceHint.textContent = `Hindi voice: ${hv.name}`;
+          voiceHint.style.color = "#166534";
+        } else {
+          voiceHint.textContent = "No Hindi voice found — install from Windows Settings › Time & Language › Speech";
+          voiceHint.style.color = "#b45309";
+        }
+      }
+
+      // Resolve which BCP-47 locale to use right now
+      function _activeLang() {
+        const sel = voiceSel.value;
+        if (sel === "hi") return "hi-IN";
+        if (sel === "en") return "en-IN";
+        // auto: derive from latest AI language
+        return (currentLang === "hindi" || currentLang === "hinglish") ? "hi-IN" : "en-IN";
+      }
+
+      // Try many common Hindi voice name variants across browsers / OS
+      const _HI_NAME_HINTS = [
+        "hindi", "lekha", "kalpana", "hemant", "googl", "microsoft hindi",
+        "रवि", "rashmi",
+      ];
+
+      function _bestVoice(lang) {
+        if (lang === "hindi" || lang === "hinglish") {
+          // 1. Exact BCP-47 match
+          let v = voices.find(v => v.lang === "hi-IN");
+          if (v) return v;
+          // 2. Starts with hi
+          v = voices.find(v => v.lang.startsWith("hi"));
+          if (v) return v;
+          // 3. Name hint match
+          v = voices.find(v => _HI_NAME_HINTS.some(h => v.name.toLowerCase().includes(h)));
+          if (v) return v;
+          return null;
+        }
+        // English
+        return voices.find(v => v.lang.startsWith("en")) || null;
+      }
+
+      // ── mode switcher ─────────────────────────────────────────────────
       function setMode(mode) {
         selectedMode = mode;
-        document.querySelectorAll(".mode-btn").forEach((btn) => btn.classList.remove("selected"));
+        document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("selected"));
         document.querySelector(`.mode-btn[onclick="setMode('${mode}')"]`).classList.add("selected");
       }
 
+      // ── chat rendering ────────────────────────────────────────────────
       function appendMessage(text, sender, extraClass = "") {
         const msg = document.createElement("div");
         msg.className = `message ${sender} ${extraClass}`.trim();
@@ -73,70 +146,99 @@
         return msg;
       }
 
+      // ── TTS ───────────────────────────────────────────────────────────
       function speak(text, language) {
         if (!speechEnabled || !("speechSynthesis" in window)) return;
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language === "hindi" ? "hi-IN" : "en-IN";
+        const utter  = new SpeechSynthesisUtterance(text);
+        utter.lang   = _activeLang();
+        const v = _bestVoice(language);
+        if (v) {
+          utter.voice = v;
+        } else if (language === "hindi" || language === "hinglish") {
+          // no Hindi voice installed — fallback to whatever the browser picks for hi-IN
+          utter.lang = "hi-IN";
+        }
+        utter.rate  = 0.92;
+        utter.pitch = 1.0;
         window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.speak(utter);
       }
 
+      // ── send message ──────────────────────────────────────────────────
       async function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
         appendMessage(text, "user");
         input.value = "";
-        const loading = appendMessage("Thinking...", "bot", "loading");
+        const loading = appendMessage("Thinking…", "bot", "loading");
         try {
-          const res = await fetch("/chatbot/message", {
+          const res  = await fetch("/chatbot/message", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text, mode: selectedMode }),
           });
           const data = await res.json();
           loading.remove();
-          if (!data.success && !data.reply) {
-            appendMessage("Sorry, I could not understand that.", "bot");
-            return;
-          }
           const reply = data.reply || "Sorry, I could not understand that.";
           appendMessage(reply, "bot");
+          if (data.language) currentLang = data.language;
           if (data.source === "fallback") {
-            appendMessage("Note: AI is temporarily unavailable, so a fallback answer was used.", "bot");
+            const reason = data.error_reason ? ` (${data.error_reason})` : "";
+            appendMessage(`Note: AI unavailable${reason} — showing a fallback answer.`, "bot");
           }
-          speak(reply, data.language);
-        } catch (err) {
+          speak(reply, data.language || currentLang);
+        } catch {
           loading.remove();
           appendMessage("Assistant is temporarily unavailable. Please try again.", "bot");
         }
       }
 
-      input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") sendMessage();
-      });
+      input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
 
-      document.getElementById("speakToggle").addEventListener("click", (event) => {
+      // ── speech toggle ─────────────────────────────────────────────────
+      speakToggle.addEventListener("click", () => {
         speechEnabled = !speechEnabled;
-        event.target.textContent = speechEnabled ? "Speech On" : "Speech Off";
+        speakToggle.textContent = speechEnabled ? "🔊 Speech On" : "🔇 Speech Off";
         if (!speechEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
       });
 
-      document.getElementById("listenBtn").addEventListener("click", () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
+      // ── STT: mic button ───────────────────────────────────────────────
+      listenBtn.addEventListener("click", () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
           appendMessage("Speech recognition is not supported in this browser.", "bot");
           return;
         }
-        const recognition = new SpeechRecognition();
-        recognition.lang = "{{ 'hi-IN' if lang == 'hindi' else 'en-IN' }}";
+        const recognition = new SR();
+        recognition.lang = _activeLang();   // respects the selector
         recognition.interimResults = false;
-        recognition.onresult = (event) => {
-          input.value = event.results[0][0].transcript;
+        recognition.maxAlternatives = 1;
+
+        listenBtn.textContent  = "Listening…";
+        listenBtn.style.background = "#dc2626";
+        listenBtn.style.color      = "#fff";
+
+        const resetBtn = () => {
+          listenBtn.innerHTML    = "&#127908; Listen";
+          listenBtn.style.background = "";
+          listenBtn.style.color      = "";
+        };
+
+        recognition.onresult = e => {
+          input.value = e.results[0][0].transcript;
+          resetBtn();
           sendMessage();
         };
-        recognition.onerror = () => appendMessage("I could not hear that clearly. Please try again.", "bot");
+        recognition.onerror = () => {
+          resetBtn();
+          appendMessage("Could not hear clearly. Please try again.", "bot");
+        };
+        recognition.onend = resetBtn;
         recognition.start();
       });
+
+      // Update hint whenever selector changes
+      voiceSel.addEventListener("change", updateVoiceHint);
     </script>
   </body>
 </html>

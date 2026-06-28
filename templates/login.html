@@ -92,9 +92,57 @@
 
     <script src="{{ url_for('static', filename='scripts/login.js') }}"></script>
     {% if request.args.get('message') %}
-    <script>
-      alert("{{ request.args.get('message') }}");
-    </script>
+    <script>alert("{{ request.args.get('message') }}");</script>
     {% endif %}
+
+    <!-- Forgot-password 3-step modal -->
+    <div id="fpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+         z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:12px;padding:2rem;width:90%;max-width:400px;position:relative;">
+        <button onclick="fpClose()" style="position:absolute;top:.75rem;right:1rem;
+                background:none;border:none;font-size:1.4rem;cursor:pointer;color:#555;">&times;</button>
+        <h3 style="margin:0 0 1.25rem;">Forgot Password</h3>
+
+        <div id="fpStep1">
+          <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
+            Enter your registered email — we'll send a 6-digit OTP.
+          </p>
+          <input type="email" id="fpEmail" placeholder="Email address"
+                 style="width:100%;padding:.75rem;border:1px solid #e2e8f0;border-radius:6px;
+                        margin-bottom:.75rem;box-sizing:border-box;" />
+          <button onclick="fpSendOtp()"
+                  style="width:100%;padding:.75rem;background:#2563eb;color:#fff;
+                         border:none;border-radius:6px;cursor:pointer;font-size:1rem;">Send OTP</button>
+          <p id="fpMsg1" style="margin-top:.6rem;font-size:.85rem;"></p>
+        </div>
+
+        <div id="fpStep2" style="display:none;">
+          <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
+            Enter the 6-digit OTP (valid 15 minutes).
+          </p>
+          <input type="text" id="fpOtp" placeholder="6-digit OTP" maxlength="6" inputmode="numeric"
+                 style="width:100%;padding:.75rem;border:1px solid #e2e8f0;border-radius:6px;
+                        margin-bottom:.75rem;box-sizing:border-box;" />
+          <button onclick="fpVerifyOtp()"
+                  style="width:100%;padding:.75rem;background:#2563eb;color:#fff;
+                         border:none;border-radius:6px;cursor:pointer;font-size:1rem;">Verify OTP</button>
+          <p id="fpMsg2" style="margin-top:.6rem;font-size:.85rem;"></p>
+        </div>
+
+        <div id="fpStep3" style="display:none;">
+          <p style="font-size:.9rem;color:#047857;margin-bottom:1rem;">OTP verified. Set your new password.</p>
+          <input type="password" id="fpNewPass" placeholder="New password (min 8 chars)"
+                 style="width:100%;padding:.75rem;border:1px solid #e2e8f0;border-radius:6px;
+                        margin-bottom:.75rem;box-sizing:border-box;" />
+          <input type="password" id="fpConfPass" placeholder="Confirm new password"
+                 style="width:100%;padding:.75rem;border:1px solid #e2e8f0;border-radius:6px;
+                        margin-bottom:.75rem;box-sizing:border-box;" />
+          <button onclick="fpResetPassword()"
+                  style="width:100%;padding:.75rem;background:#2563eb;color:#fff;
+                         border:none;border-radius:6px;cursor:pointer;font-size:1rem;">Reset Password</button>
+          <p id="fpMsg3" style="margin-top:.6rem;font-size:.85rem;"></p>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

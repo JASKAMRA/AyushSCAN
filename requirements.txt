@@ -1,5 +1,6 @@
 Flask
 flask-cors
+Werkzeug
 pytesseract
 Pillow
 rapidfuzz
@@ -7,3 +8,6 @@ python-dotenv
 google-generativeai
 pypdf
 pypdfium2
+reportlab
+# optional – install for handwriting/low-quality OCR fallback:
+# easyocr

@@ -9,6 +9,14 @@
   </head>
   <body>
     <h2>Scan Results</h2>
+
+    <!-- Export buttons -->
+    <div class="export-bar">
+      <a href="/result/{{ scan_id }}/export/csv" class="btn-export">&#11015; Download CSV</a>
+      <a href="/result/{{ scan_id }}/export/pdf" class="btn-export">&#11015; Download PDF</a>
+      <a href="/dashboard" class="btn-export" style="background:#6b7280;">&#8592; Dashboard</a>
+    </div>
+
     <p class="results-intro">
       Quantities show how many units were read from your bill and how they were interpreted for comparison.
       Pack sizes are taken from the bill when available, then normalized against Jan Aushadhi reference pricing.
@@ -18,6 +26,30 @@
     <p class="confidence-warning">{{ report.summary.low_confidence_disclaimer }}</p>
     {% endif %}
 
+    <!-- Jan Aushadhi Savings Banner -->
+    {% set total_ja_savings = namespace(val=0) %}
+    {% for item in report.get('detected_items', []) %}
+      {% if item.get('jan_aushadhi_savings') and item.jan_aushadhi_savings > 0 %}
+        {% set total_ja_savings.val = total_ja_savings.val + item.jan_aushadhi_savings %}
+      {% endif %}
+    {% endfor %}
+    {% if total_ja_savings.val > 0 %}
+    <div class="ja-banner">
+      <span class="ja-icon">&#127968;</span>
+      <div>
+        <strong>Jan Aushadhi Generic Savings Available</strong>
+        <p>
+          Switching to Jan Aushadhi generic equivalents could save you approximately
+          <strong>Rs {{ total_ja_savings.val | round(2) }}</strong> on this bill.
+          <a href="https://janaushadhi.gov.in/" target="_blank" rel="noopener">
+            Find nearest Jan Aushadhi Kendra &rarr;
+          </a>
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="table-scroll">
     <table id="resultsTable">
       <thead>
         <tr>
@@ -59,6 +91,9 @@
               {% elif item.difference is not none %}
                 Rs {{ item.difference }}
                 {% if item.overpricing_percentage %}<span class="cell-sub">{{ item.overpricing_percentage }}% above reference</span>{% endif %}
+                {% if item.get('jan_aushadhi_note') %}
+                <span class="cell-sub ja-note">{{ item.jan_aushadhi_note }}</span>
+                {% endif %}
               {% else %}
                 N/A
               {% endif %}
@@ -83,6 +118,7 @@
         {% endif %}
       </tbody>
     </table>
+    </div><!-- /.table-scroll -->
 
     <div class="illness-section">
       <h3>Structured Report</h3>
@@ -125,6 +161,75 @@
     </div>
     {% endif %}
 
-    <a href="/dashboard" class="btn-back">Back to Dashboard</a>
+    <!-- Phase 5: non-medicine bill entries -->
+    {% set other_items = report.get('non_medicine_items', []) %}
+    {% if other_items %}
+    <div class="illness-section">
+      <h3>Other Bill Entries Detected</h3>
+      <div class="table-scroll">
+      <table id="otherTable">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Quantity</th>
+            <th>Amount (Rs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in other_items %}
+          <tr>
+            <td class="cell-left">{{ item.name }}</td>
+            <td>{{ item.category_type | replace('_', ' ') | title }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.line_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Phase 5: category breakdown -->
+    {% set breakdown = report.get('category_breakdown', {}) %}
+    {% if breakdown %}
+    <div class="illness-section">
+      <h3>Bill Category Breakdown</h3>
+      <div class="category-grid">
+        {% for cat, count in breakdown.items() %}
+        <div class="category-chip">
+          <span class="chip-label">{{ cat | replace('_', ' ') | title }}</span>
+          <span class="chip-count">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Phase 7: scheme recommendations -->
+    {% if schemes %}
+    <div class="scheme-section">
+      <h3>Government Scheme Recommendations</h3>
+      <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
+        Based on the detected treatment, you may be eligible for the following schemes.
+        Always verify eligibility at the official website.
+      </p>
+      {% for s in schemes %}
+      <div class="scheme-card">
+        <div class="scheme-name">{{ s.name }}</div>
+        <p class="scheme-desc">{{ s.description }}</p>
+        <p class="scheme-elig"><strong>Eligibility:</strong> {{ s.eligibility }}</p>
+        <a href="{{ s.website }}" target="_blank" rel="noopener" class="scheme-link">
+          Visit official site →
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="text-align:center;margin:2rem 0;">
+      <a href="/dashboard" class="btn-back">&#8592; Back to Dashboard</a>
+    </div>
   </body>
 </html>

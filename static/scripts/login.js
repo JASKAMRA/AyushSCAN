@@ -105,8 +105,90 @@ loginForm.addEventListener('submit', function (e) {
 
 forgotPassword.addEventListener('click', e => {
   e.preventDefault();
-  alert('Forgot password functionality would be implemented here');
+  fpClose();                                         // reset steps
+  document.getElementById('fpModal').style.display = 'flex';
 });
+
+function fpClose() {
+  document.getElementById('fpModal').style.display = 'none';
+  ['fpStep1','fpStep2','fpStep3'].forEach((id, i) => {
+    document.getElementById(id).style.display = i === 0 ? 'block' : 'none';
+  });
+  ['fpEmail','fpOtp','fpNewPass','fpConfPass'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['fpMsg1','fpMsg2','fpMsg3'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
+}
+
+function _fpMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.style.color = ok ? '#047857' : '#b91c1c';
+}
+
+async function fpSendOtp() {
+  const email = document.getElementById('fpEmail').value.trim();
+  if (!email) { _fpMsg('fpMsg1', 'Please enter your email.', false); return; }
+  _fpMsg('fpMsg1', 'Sending OTP…', true);
+  try {
+    const res  = await fetch('/forgot_password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    _fpMsg('fpMsg1', data.message, data.success);
+    if (data.success) {
+      document.getElementById('fpStep1').style.display = 'none';
+      document.getElementById('fpStep2').style.display = 'block';
+    }
+  } catch { _fpMsg('fpMsg1', 'Network error. Please try again.', false); }
+}
+
+async function fpVerifyOtp() {
+  const email = document.getElementById('fpEmail').value.trim();
+  const otp   = document.getElementById('fpOtp').value.trim();
+  if (!otp) { _fpMsg('fpMsg2', 'Please enter the OTP.', false); return; }
+  _fpMsg('fpMsg2', 'Verifying…', true);
+  try {
+    const res  = await fetch('/verify_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const data = await res.json();
+    _fpMsg('fpMsg2', data.message, data.success);
+    if (data.success) {
+      document.getElementById('fpStep2').style.display = 'none';
+      document.getElementById('fpStep3').style.display = 'block';
+    }
+  } catch { _fpMsg('fpMsg2', 'Network error. Please try again.', false); }
+}
+
+async function fpResetPassword() {
+  const newPass  = document.getElementById('fpNewPass').value;
+  const confPass = document.getElementById('fpConfPass').value;
+  if (newPass.length < 8) { _fpMsg('fpMsg3', 'Password must be at least 8 characters.', false); return; }
+  if (newPass !== confPass) { _fpMsg('fpMsg3', 'Passwords do not match.', false); return; }
+  _fpMsg('fpMsg3', 'Resetting…', true);
+  try {
+    const res  = await fetch('/reset_password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_password: newPass, confirm_password: confPass }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      fpClose();
+      alert(data.message + ' You can now log in.');
+    } else {
+      _fpMsg('fpMsg3', data.message, false);
+    }
+  } catch { _fpMsg('fpMsg3', 'Network error. Please try again.', false); }
+}
 
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
