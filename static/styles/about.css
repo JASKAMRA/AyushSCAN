@@ -37,6 +37,11 @@ h2 {
   background: #50be93;
 }
 
+.back-home a:focus-visible {
+  outline: 2px solid #267a50;
+  outline-offset: 3px;
+}
+
 .vision-box {
   max-width: 850px;
   background-color: #e9f6f1;
@@ -131,6 +136,14 @@ footer p {
   border-radius: 10px;
   border: 1px solid #ccc;
   font-size: 15px;
+  transition: border-color 0.2s ease;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: none;
+  border-color: #6dd3a8;
+  box-shadow: 0 0 0 3px rgba(109, 211, 168, 0.2);
 }
 
 button.send-btn {
@@ -141,10 +154,17 @@ button.send-btn {
   border: none;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 button.send-btn:hover {
   background-color: #50be93;
+  transform: translateY(-1px);
+}
+
+button.send-btn:focus-visible {
+  outline: 2px solid #267a50;
+  outline-offset: 2px;
 }
 
 .credit {

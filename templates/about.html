@@ -1,12 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>
-      {% if lang == 'hindi' %}हमारे बारे में - आयुषस्कैन{% else %}About -
-      AyushScan{% endif %}
-    </title>
+    <title>{{ _("About - AyushScan") }}</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -15,110 +12,45 @@
   </head>
   <body>
     <div class="back-home">
-      <a href="{{ url_for('index') }}"
-        >← {% if lang == 'hindi' %}होम पर लौटें{% else %}Back to Home{% endif
-        %}</a
-      >
+      <a href="{{ url_for('index') }}">← {{ _("Back to Home") }}</a>
     </div>
 
-    <h1>{% if lang == 'hindi' %}हमारे बारे में{% else %}About Us{% endif %}</h1>
+    <h1>{{ _("About Us") }}</h1>
 
-    <h2>
-      {% if lang == 'hindi' %}हमारा दृष्टिकोण{% else %}Our Vision{% endif %}
-    </h2>
+    <h2>{{ _("Our Vision") }}</h2>
     <div class="vision-box">
-      {% if lang == 'hindi' %} हम स्वास्थ्य देखभाल बिलिंग को पारदर्शी, समझने
-      योग्य और सभी के लिए सुलभ बनाना चाहते हैं। आयुषस्कैन उपयोगकर्ताओं को
-      ओवरबिलिंग का पता लगाने, जटिल शब्दों को समझने और अपनी भाषा में समर्थन
-      प्राप्त करने की शक्ति देता है — साथ ही नजदीकी सरकारी अस्पताल खोजने और
-      सरकारी योजनाओं तक पहुंच की सुविधा देता है। {% else %} We aim to make
-      healthcare billing transparent, understandable, and accessible for
-      everyone. AyushScan empowers users to detect overbilling, decode complex
-      terms, and get support in their own language — with built-in GPS to find
-      nearby government hospitals and access to government health schemes. {%
-      endif %}
+      {{ _("We aim to make healthcare billing transparent, understandable, and accessible for everyone. AyushScan empowers users to detect overbilling, decode complex terms, and get support in their own language — with built-in GPS to find nearby government hospitals and access to government health schemes.") }}
     </div>
 
-    <h2>
-      {% if lang == 'hindi' %}हम क्या करते हैं{% else %}What We Do{% endif %}
-    </h2>
+    <h2>{{ _("What We Do") }}</h2>
     <div class="cards-section">
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}मेडिकल बिल स्कैन करें{% else %}Scan Medical
-          Bills{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}अपने मेडिकल बिल अपलोड करें और AI से तुरंत
-          परिणाम प्राप्त करें।{% else %}Upload your medical bills and get
-          instant insights powered by AI.{% endif %}
-        </p>
+        <h3>{{ _("Scan Medical Bills") }}</h3>
+        <p>{{ _("Upload your medical bills and get instant insights powered by AI.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}ओवरबिलिंग का पता लगाएं{% else %}Detect
-          Overbilling{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}हम बिल में बढ़ी हुई कीमतों और अनावश्यक वस्तुओं
-          की पहचान करते हैं।{% else %}We identify inflated charges and
-          unnecessary additions in your bill.{% endif %}
-        </p>
+        <h3>{{ _("Detect Overbilling") }}</h3>
+        <p>{{ _("We identify inflated charges and unnecessary additions in your bill.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}सरल व्याख्या{% else %}Simple Explanations{%
-          endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}जटिल शब्दों को आसान भाषा में समझाया जाता है —
-          बिना किसी तकनीकी भाषा के।{% else %}Complex terms are simplified for
-          easy understanding — no jargon.{% endif %}
-        </p>
+        <h3>{{ _("Simple Explanations") }}</h3>
+        <p>{{ _("Complex terms are simplified for easy understanding — no jargon.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}हिंदी और आवाज़ का समर्थन{% else %}Support for
-          Hindi & Voice{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}आप हिंदी या आवाज़ के माध्यम से बातचीत कर सकते
-          हैं — आपकी सुविधा हमारे लिए सर्वोपरि है।{% else %}Interact with the
-          system in Hindi or using voice — comfort comes first.{% endif %}
-        </p>
+        <h3>{{ _("Support for Hindi & Voice") }}</h3>
+        <p>{{ _("Interact with the system in Hindi or using voice — comfort comes first.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}नजदीकी सरकारी अस्पताल{% else %}Nearby Govt.
-          Hospitals{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}GPS की मदद से, हम आपको नजदीकी सस्ते और
-          विश्वसनीय अस्पताल खोजने में मदद करते हैं।{% else %}Using GPS, we help
-          you locate nearby affordable and trusted hospitals.{% endif %}
-        </p>
+        <h3>{{ _("Nearby Govt. Hospitals") }}</h3>
+        <p>{{ _("Using GPS, we help you locate nearby affordable and trusted hospitals.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}स्वास्थ्य योजना सुझाव{% else %}Health Scheme
-          Suggestions{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}आपके प्रोफाइल और बिल के आधार पर, हम आपको
-          उपयुक्त सरकारी योजनाएं सुझाव देते हैं।{% else %}Based on your profile
-          and bill, get suggested govt. schemes you may qualify for.{% endif %}
-        </p>
+        <h3>{{ _("Health Scheme Suggestions") }}</h3>
+        <p>{{ _("Based on your profile and bill, get suggested govt. schemes you may qualify for.") }}</p>
       </div>
       <div class="card">
-        <h3>
-          {% if lang == 'hindi' %}हमारे चैटबॉट से पूछें{% else %}Ask Our
-          Chatbot{% endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}अपने स्वास्थ्य या बिल से संबंधित किसी भी सवाल
-          के लिए हमारे AI चैटबॉट से तुरंत पूछें।{% else %}Got doubts about your
-          health or billing? Ask our AI-powered chatbot instantly.{% endif %}
-        </p>
+        <h3>{{ _("Ask Our Chatbot") }}</h3>
+        <p>{{ _("Got doubts about your health or billing? Ask our AI-powered chatbot instantly.") }}</p>
       </div>
     </div>
 
@@ -126,45 +58,39 @@
       <div class="footer-sections">
         <div class="logo-bg-blur"></div>
         <div class="footer-left">
-          <h3>
-            {% if lang == 'hindi' %}संपर्क करें{% else %}Contact Us{% endif %}
-          </h3>
+          <h3>{{ _("Contact Us") }}</h3>
           <p style="font-size: small">
-            {% if lang == 'hindi' %}सभी प्रश्नों का उत्तर 24–48 घंटों में दिया
-            जाएगा{% else %}All queries will be answered in 24–48 hours{% endif
-            %}
+            {{ _("All queries will be answered in 24–48 hours") }}
           </p>
           <form class="contact-form" method="POST" action="/contact">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <input
               type="text"
               name="name"
-              placeholder="{% if lang == 'hindi' %}आपका नाम{% else %}Your Name{% endif %}"
+              placeholder="{{ _('Your Name') }}"
               required
             /><br />
             <input
               type="email"
               name="email"
-              placeholder="{% if lang == 'hindi' %}आपका ईमेल{% else %}Your Email{% endif %}"
+              placeholder="{{ _('Your Email') }}"
               required
             /><br />
             <textarea
               name="message"
               rows="4"
-              placeholder="{% if lang == 'hindi' %}आपका संदेश...{% else %}Your Message...{% endif %}"
+              placeholder="{{ _('Your Message...') }}"
               required
             ></textarea
             ><br />
             <button type="submit" class="send-btn">
-              {% if lang == 'hindi' %}संदेश भेजें{% else %}Send Message{% endif
-              %}
+              {{ _("Send Message") }}
             </button>
           </form>
         </div>
 
         <div class="footer-right">
-          <h3>
-            {% if lang == 'hindi' %}हमारी टीम{% else %}Our Team{% endif %}
-          </h3>
+          <h3>{{ _("Our Team") }}</h3>
           <p>
             <strong>Akshita Sachdeva</strong> — UI/UX, Frontend & Integration
           </p>
@@ -173,18 +99,11 @@
       </div>
 
       <div class="footer-center">
-        <h3>
-          {% if lang == 'hindi' %}❤️ के साथ बनाया गया{% else %}Built With ❤️{%
-          endif %}
-        </h3>
-        <p>
-          {% if lang == 'hindi' %}हमारा मिशन है कि स्वास्थ्य देखभाल को स्मार्ट
-          और आसान बनाना।{% else %}It's our mission to make healthcare smarter
-          and simpler.{% endif %}
-        </p>
+        <h3>{{ _("Built With ❤️") }}</h3>
+        <p>{{ _("It's our mission to make healthcare smarter and simpler.") }}</p>
       </div>
 
-      <div class="credit">© 2025 AyushScan.</div>
+      <div class="credit">{{ _("© 2025 AyushScan.") }}</div>
     </footer>
   </body>
 </html>

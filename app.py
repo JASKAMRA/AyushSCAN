@@ -9,6 +9,8 @@ import smtplib
 import sqlite3
 import ssl
 import time
+import uuid
+
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from math import asin, cos, radians, sin, sqrt
@@ -17,6 +19,9 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
+from flask_babel import Babel, gettext as _
+from flask_wtf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -70,9 +75,11 @@ except ImportError:
     fuzz = _FuzzFallback()
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types as genai_types
 except ImportError:
     genai = None
+    genai_types = None
 
 try:
     import easyocr as _easyocr_module
@@ -99,16 +106,56 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 load_dotenv(BASE_DIR / ".env")
 
+_loaded_key = os.getenv("GOOGLE_API_KEY", "")
+if _loaded_key:
+    print(f"GOOGLE_API_KEY loaded: {_loaded_key[:4]}...{_loaded_key[-4:]} (len={len(_loaded_key)})")
+else:
+    print("GOOGLE_API_KEY loaded: NOT SET")
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-only-change-me")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+_DEV_SECRET_KEY = "dev-only-change-me"
+app.secret_key = os.getenv("SECRET_KEY", _DEV_SECRET_KEY)
+if app.secret_key == _DEV_SECRET_KEY:
+    logging.warning(
+        "SECRET_KEY is not set — falling back to an insecure default. "
+        "Set SECRET_KEY in the environment before deploying to production."
+    )
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=bool(os.getenv("RENDER")),
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+    BABEL_DEFAULT_LOCALE="en",
+    BABEL_TRANSLATION_DIRECTORIES=str(BASE_DIR / "translations"),
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+csrf = CSRFProtect(app)
+
+SUPPORTED_LOCALES = ("en", "hi")
+
+
+def normalize_locale(value):
+    """Map legacy language names and raw locale codes to a supported Babel locale."""
+    mapping = {
+        "english": "en", "hindi": "hi", "hinglish": "hi",
+        "en": "en", "hi": "hi",
+    }
+    return mapping.get((value or "").strip().lower(), "en")
+
+
+def get_locale():
+    if "language" in session:
+        return normalize_locale(session["language"])
+    return request.accept_languages.best_match(SUPPORTED_LOCALES) or "en"
+
+
+babel = Babel(app, locale_selector=get_locale)
 
 # ── Simple in-process rate limiter ────────────────────────────────────────────
 _rate_limit_store: dict = {}
@@ -125,8 +172,28 @@ def check_rate_limit(key: str, max_requests: int = 5, window_sec: int = 60) -> b
 # ── Allowed upload extensions ─────────────────────────────────────────────────
 _ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp", ".pdf"})
 
-if genai and os.getenv("GOOGLE_API_KEY"):
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+_gemini_client = None
+
+
+def get_gemini_client():
+    """Lazily build and cache the google-genai Client. Raises with the exact reason on failure."""
+    global _gemini_client
+    if _gemini_client is not None:
+        return _gemini_client
+    if genai is None:
+        raise RuntimeError("google-genai is not installed")
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY is not configured")
+    if not (api_key.startswith("AIza") or api_key.startswith("AQ.")):
+        raise RuntimeError(
+            f"GOOGLE_API_KEY does not look like a Gemini API key (got prefix '{api_key[:4]}...'). "
+            "Valid keys start with 'AIza' (legacy Standard key) or 'AQ.' (current Auth key). "
+            "Generate one at https://aistudio.google.com/apikey"
+        )
+    _gemini_client = genai.Client(api_key=api_key)
+    return _gemini_client
+
 
 tesseract_path = os.getenv("TESSERACT_CMD")
 if pytesseract and tesseract_path:
@@ -134,51 +201,6 @@ if pytesseract and tesseract_path:
 elif pytesseract and os.name == "nt":
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-
-TRANSLATIONS = {
-    "english": {
-        "dashboard": "Dashboard",
-        "scanner": "Scanner",
-        "profile": "Profile",
-        "history": "Scan History",
-        "hospitals": "Hospitals Nearby",
-        "ai_assistant": "AI Assistant",
-        "total_scans": "Total Scans",
-        "recent_scans": "Recent Scans",
-        "chat_count": "Chat Messages",
-        "savings": "Estimated Savings",
-        "active": "Active",
-        "loading": "Loading...",
-    },
-    "hindi": {
-        "dashboard": "डैशबोर्ड",
-        "scanner": "स्कैनर",
-        "profile": "प्रोफाइल",
-        "history": "स्कैन इतिहास",
-        "hospitals": "नज़दीकी अस्पताल",
-        "ai_assistant": "एआई सहायक",
-        "total_scans": "कुल स्कैन",
-        "recent_scans": "हाल के स्कैन",
-        "chat_count": "चैट संदेश",
-        "savings": "अनुमानित बचत",
-        "active": "सक्रिय",
-        "loading": "लोड हो रहा है...",
-    },
-    "hinglish": {
-        "dashboard": "Dashboard",
-        "scanner": "Scanner",
-        "profile": "Profile",
-        "history": "Scan History",
-        "hospitals": "Nearby Hospitals",
-        "ai_assistant": "AI Sahayak",
-        "total_scans": "Total Scans",
-        "recent_scans": "Recent Scans",
-        "chat_count": "Chat Messages",
-        "savings": "Estimated Savings",
-        "active": "Active",
-        "loading": "Loading...",
-    },
-}
 
 HINGLISH_HINTS = {
     "dawa", "dawai", "bimari", "aspataal", "hospital", "kitna", "hai", "kya",
@@ -208,7 +230,7 @@ def init_db():
                 username TEXT NOT NULL UNIQUE,
                 email TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
-                preferred_language TEXT DEFAULT 'english',
+                preferred_language TEXT DEFAULT 'en',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -253,7 +275,7 @@ def init_db():
 
         migrations = {
             "users": {
-                "preferred_language": "ALTER TABLE users ADD COLUMN preferred_language TEXT DEFAULT 'english'",
+                "preferred_language": "ALTER TABLE users ADD COLUMN preferred_language TEXT DEFAULT 'en'",
                 "created_at": "ALTER TABLE users ADD COLUMN created_at DATETIME",
                 "state": "ALTER TABLE users ADD COLUMN state TEXT",
                 "caste_category": "ALTER TABLE users ADD COLUMN caste_category TEXT DEFAULT 'general'",
@@ -278,20 +300,41 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scans_user_timestamp ON scans(user_id, timestamp DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_user_timestamp ON chat_history(user_id, timestamp DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_otp_email_purpose ON otp_tokens(email, purpose, used)")
+
+        # Normalize legacy preferred_language values ('english'/'hindi'/'hinglish') to Babel locale codes.
+        conn.execute("UPDATE users SET preferred_language = 'en' WHERE preferred_language = 'english'")
+        conn.execute("UPDATE users SET preferred_language = 'hi' WHERE preferred_language IN ('hindi', 'hinglish')")
+        conn.execute("UPDATE users SET preferred_language = 'en' WHERE preferred_language NOT IN ('en', 'hi')")
         conn.commit()
 
 
-def t(key):
-    language = session.get("language", "english")
-    return TRANSLATIONS.get(language, TRANSLATIONS["english"]).get(key, key)
+def translate_category(code):
+    labels = {
+        "lab_test": _("Lab Test"),
+        "consultation": _("Consultation"),
+        "room_charge": _("Room Charge"),
+        "procedure": _("Procedure"),
+        "gst": _("GST"),
+        "medicine": _("Medicine"),
+    }
+    return labels.get((code or "").lower(), (code or "").replace("_", " ").title())
+
+
+def translate_confidence(tier):
+    labels = {
+        "low": _("Low"),
+        "medium": _("Medium"),
+        "high": _("High"),
+    }
+    return labels.get((tier or "").lower(), (tier or "").capitalize())
 
 
 @app.context_processor
 def inject_language():
     return {
-        "lang": session.get("language", "english"),
-        "tr": TRANSLATIONS.get(session.get("language", "english"), TRANSLATIONS["english"]),
-        "t": t,
+        "lang": get_locale(),
+        "translate_category": translate_category,
+        "translate_confidence": translate_confidence,
     }
 
 
@@ -299,14 +342,16 @@ def detect_language(text: str) -> str:
     """Detect message language; respects the user's stored preference for roman-script input."""
     if re.search(r"[\u0900-\u097F]", text or ""):
         return "hindi"
-    preferred = session.get("language", "english")
+    # session["language"] holds a Babel locale code ('en'/'hi'); map back to the
+    # AI-chat-language vocabulary ("english"/"hindi"/"hinglish") this function returns.
+    preferred = "hindi" if normalize_locale(session.get("language")) == "hi" else "english"
     words = set(re.findall(r"[a-zA-Z]+", (text or "").lower()))
     if words & HINGLISH_HINTS:
         return "hinglish"
-    # If the user has chosen Hindi/Hinglish, keep it \u2014 they may type in Roman script.
-    if preferred in ("hindi", "hinglish") and words:
+    # If the user has chosen Hindi, keep it \u2014 they may type in Roman script.
+    if preferred == "hindi" and words:
         return preferred
-    return preferred if preferred in TRANSLATIONS else "english"
+    return preferred
 
 
 def translate_reply(text, language):
@@ -577,6 +622,9 @@ def get_user_scan_context(user_id, limit=5):
             context_lines.append(f"Scan {row['id']} treatment context: {row['illness'][:200]}")
         if row["covered"]:
             context_lines.append(f"Scan {row['id']} PM-JAY note: {row['covered'][:200]}")
+        disclaimer = report.get("summary", {}).get("low_confidence_disclaimer")
+        if disclaimer:
+            context_lines.append(f"Scan {row['id']} OCR quality note: {disclaimer}")
     chat_context = []
     for item in reversed(history):
         chat_context.append(f"User: {item['user_message'][:300]}")
@@ -638,14 +686,21 @@ def ask_gemini(message: str, language: str, user_id: int = None) -> str:
             context_block += f"\nRecent chat history:\n{context['chat_context']}\n"
     prompt = (
         f"{instruction}\n\n"
-        "You are Lia, AyushScan's careful medical billing assistant. "
+        "You are Ayu, AyushScan's healthcare billing assistant — warm, professional, and reassuring, "
+        "like a knowledgeable Indian hospital help-desk staffer, never robotic or overly formal. "
         "Do not diagnose. Explain bills, medicine pricing, Jan Aushadhi comparisons, "
         "PM-JAY/Ayushman Bharat coverage, OCR scan results, and healthcare navigation safely. "
         "If the user asks why a medicine was flagged, use the scan context when available. "
-        "Do not invent scan results that are not in the context. "
+        "Do not invent scan results, prices, or medical facts that are not in the context — "
+        "if you are not sure of something, say so plainly instead of guessing. "
+        "If the scan context includes an OCR quality note, gently suggest the user upload a clearer "
+        "photo of the bill for a more accurate comparison. "
         "If the user asks about a medicine price, refer to the Janaushadhi dataset. "
         "If you cannot find a match, say so and suggest the user try the generic name with strength. "
         "Do not reference scan numbers in your response. "
+        "Keep replies short and to the point by default — expand only if the user asks for more detail. "
+        "Use short bullet points when listing multiple items, prices, or steps; use plain sentences for "
+        "quick answers. Never pad a reply with unnecessary paragraphs. "
         f"{context_block}"
         f"\nUser: {message}\n\n"
         f"REMINDER — {instruction}"
@@ -688,13 +743,16 @@ def send_otp_email(email, otp, purpose="forgot_password"):
     password = os.getenv("EMAIL_PASSWORD")
     if not sender or not password:
         app.logger.warning("SMTP is not configured. OTP for %s is %s", email, otp)
-        return False, "Email is not configured. OTP has been logged for local demo."
+        return False, _("Email is not configured. OTP has been logged for local demo.")
 
     msg = EmailMessage()
-    msg["Subject"] = "Your AyushScan OTP"
+    msg["Subject"] = _("Your AyushScan OTP")
     msg["From"] = sender
     msg["To"] = email
-    msg.set_content(f"Your AyushScan OTP for {purpose.replace('_', ' ')} is {otp}. It is valid for this session.")
+    msg.set_content(_(
+        "Your AyushScan OTP for %(purpose)s is %(otp)s. It is valid for this session.",
+        purpose=purpose.replace('_', ' '), otp=otp,
+    ))
 
     host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     port = int(os.getenv("SMTP_PORT", "465"))
@@ -703,10 +761,10 @@ def send_otp_email(email, otp, purpose="forgot_password"):
         with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as smtp:
             smtp.login(sender, password)
             smtp.send_message(msg)
-        return True, "OTP sent to your email."
+        return True, _("OTP sent to your email.")
     except Exception as exc:
         app.logger.exception("OTP email failed")
-        return False, f"Could not send OTP email: {exc}"
+        return False, _("Could not send OTP email: %(reason)s", reason=str(exc))
 
 
 def clean_ocr_text(text):
@@ -1036,30 +1094,18 @@ _GEMINI_FALLBACK_MODELS = [
 ]
 
 
-def get_gemini_model(model_name=None):
-    if genai is None:
-        raise RuntimeError("google-generativeai is not installed")
-    if not os.getenv("GOOGLE_API_KEY"):
-        raise RuntimeError("GOOGLE_API_KEY is not configured")
-    name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-    return genai.GenerativeModel(name)
-
-
 def _gemini_generate_with_fallback(prompt, generation_config=None):
     """Try the configured model, cascade through fallbacks on quota/timeout errors."""
+    client = get_gemini_client()
     primary = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     models_to_try = [primary] + [m for m in _GEMINI_FALLBACK_MODELS if m != primary]
     last_exc = None
     for attempt, model_name in enumerate(models_to_try):
         try:
-            model = get_gemini_model(model_name)
-            kwargs: dict = {}
-            if generation_config:
-                kwargs["generation_config"] = generation_config
-            try:
-                return model.generate_content(prompt, request_options={"timeout": 28}, **kwargs)
-            except TypeError:
-                return model.generate_content(prompt, **kwargs)
+            config_kwargs = dict(generation_config or {})
+            config_kwargs["http_options"] = genai_types.HttpOptions(timeout=28000)
+            config = genai_types.GenerateContentConfig(**config_kwargs)
+            return client.models.generate_content(model=model_name, contents=prompt, config=config)
         except Exception as exc:
             last_exc = exc
             err = str(exc).lower()
@@ -1074,6 +1120,7 @@ def _gemini_generate_with_fallback(prompt, generation_config=None):
                 app.logger.warning("Timeout on %s, trying next model.", model_name)
                 time.sleep(1)
                 continue
+            app.logger.error("Gemini call failed on %s: %s", model_name, exc, exc_info=True)
             raise
     raise last_exc
 
@@ -1611,7 +1658,7 @@ def analyze_bill(text):
             raw = entry["raw_line"]
             cat = categorize_entry_rule_based(raw)
             if cat != "medicine":
-                _, _, qty, line_total = extract_billing_info(raw)
+                _unused_price, _unused_price_type, qty, line_total = extract_billing_info(raw)
                 if line_total and line_total > 0:
                     non_medicine_items.append({
                         "name": raw[:100].strip(),
@@ -1913,22 +1960,22 @@ def suggest_government_schemes(illness, flagged, report, user_profile=None):
 @app.route("/api/status")
 def api_status():
     key = os.getenv("GOOGLE_API_KEY", "")
-    key_ok = bool(key and len(key) > 10)
+    key_ok = bool(key and (key.startswith("AIza") or key.startswith("AQ.")) and len(key) > 10)
     email_ok = bool(os.getenv("EMAIL_ADDRESS") and os.getenv("EMAIL_PASSWORD"))
     gemini_test = ""
     if genai and key_ok:
         try:
-            model = get_gemini_model()
-            model.generate_content("ping")
+            client = get_gemini_client()
+            client.models.generate_content(model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"), contents="ping")
             gemini_test = "ok"
         except Exception as exc:
             gemini_test = str(exc)
     elif not key:
         gemini_test = "GOOGLE_API_KEY not set"
     elif not key_ok:
-        gemini_test = "GOOGLE_API_KEY too short — check your .env"
+        gemini_test = "GOOGLE_API_KEY is not a valid Gemini key — it must start with 'AIza' or 'AQ.'. Get one at https://aistudio.google.com/apikey"
     else:
-        gemini_test = "google-generativeai not installed"
+        gemini_test = "google-genai not installed"
     return jsonify({
         "google_api_key_set": bool(key),
         "google_api_key_format_ok": key_ok,
@@ -1960,7 +2007,7 @@ def contact():
     sender = os.getenv("EMAIL_ADDRESS")
     password = os.getenv("EMAIL_PASSWORD")
     if not sender or not password:
-        flash("Contact form is not configured. Please email us directly.", "danger")
+        flash(_("Contact form is not configured. Please email us directly."), "danger")
         return redirect(url_for("about"))
 
     try:
@@ -1973,10 +2020,10 @@ def contact():
             smtp.login(sender, password)
             smtp.send_message(msg)
         app.logger.info("Contact form submitted from %s", email)
-        flash("Message sent successfully!", "success")
+        flash(_("Message sent successfully!"), "success")
     except Exception as exc:
         app.logger.exception("Contact form email failed")
-        flash("Could not send message. Please try again later.", "danger")
+        flash(_("Could not send message. Please try again later."), "danger")
 
     return redirect(url_for("about"))
 
@@ -1988,7 +2035,7 @@ def signup():
     data = request.get_json(silent=True) or {}
     required = ["firstName", "lastName", "username", "email", "password"]
     if not all(data.get(field) for field in required):
-        return jsonify(success=False, message="Please fill all required fields."), 400
+        return jsonify(success=False, message=_("Please fill all required fields.")), 400
     try:
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -1999,14 +2046,14 @@ def signup():
                     data["username"].strip(),
                     data["email"].strip().lower(),
                     generate_password_hash(data["password"]),
-                    session.get("language", "english"),
+                    normalize_locale(session.get("language")),
                 ),
             )
             conn.commit()
             session["user_id"] = cursor.lastrowid
         return jsonify(success=True, redirect_url="/dashboard")
     except sqlite3.IntegrityError:
-        return jsonify(success=False, message="Email or username already registered."), 409
+        return jsonify(success=False, message=_("Email or username already registered.")), 409
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -2018,28 +2065,26 @@ def login():
     password = data.get("password") or ""
     # Rate limit: 10 login attempts per email per minute
     if not check_rate_limit(f"login:{email}", max_requests=10, window_sec=60):
-        return jsonify(success=False, message="Too many login attempts. Please wait 1 minute."), 429
+        return jsonify(success=False, message=_("Too many login attempts. Please wait 1 minute.")), 429
     with get_db_connection() as conn:
         user = conn.execute("SELECT id, password, preferred_language FROM users WHERE email = ?", (email,)).fetchone()
         if user and is_password_valid(user["password"], password):
             upgrade_password_if_plaintext(conn, user["id"], user["password"], password)
             session["user_id"] = user["id"]
-            session["language"] = user["preferred_language"] or session.get("language", "english")
+            session["language"] = normalize_locale(user["preferred_language"] or session.get("language"))
             return jsonify(success=True, redirect_url="/dashboard")
-    return jsonify(success=False, message="Invalid credentials"), 401
+    return jsonify(success=False, message=_("Invalid credentials")), 401
 
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("index", message="Logged out successfully"))
+    return redirect(url_for("index", message=_("Logged out successfully")))
 
 
 @app.route("/set_language", methods=["POST"])
 def set_language():
-    selected = request.form.get("language", "english")
-    if selected not in TRANSLATIONS:
-        selected = "english"
+    selected = normalize_locale(request.form.get("language"))
     session["language"] = selected
     if "user_id" in session:
         with get_db_connection() as conn:
@@ -2086,7 +2131,7 @@ def chatbot_page():
 @app.route("/chatbot/message", methods=["POST"])
 def chatbot_message():
     if "user_id" not in session:
-        return jsonify(success=False, reply="Please log in first.", source="error"), 401
+        return jsonify(success=False, reply=_("Please log in first."), source="error"), 401
     data = request.get_json(silent=True) or {}
     user_input = (data.get("message") or "").strip()
     mode = data.get("mode", "gemini")
@@ -2128,7 +2173,7 @@ def chatbot_message():
 @app.route("/hospitals/nearby")
 def hospitals_nearby():
     if "user_id" not in session:
-        return jsonify(success=False, message="Unauthorized"), 401
+        return jsonify(success=False, message=_("Unauthorized")), 401
     try:
         lat = float(request.args.get("lat"))
         lon = float(request.args.get("lon"))
@@ -2139,28 +2184,28 @@ def hospitals_nearby():
         return jsonify(success=True, hospitals=hospitals)
     except Exception as exc:
         app.logger.warning("Hospital lookup failed: %s", exc)
-        return jsonify(success=False, message="Hospital search is temporarily unavailable.", hospitals=[]), 503
+        return jsonify(success=False, message=_("Hospital search is temporarily unavailable."), hospitals=[]), 503
 
 
 @app.route("/scan", methods=["POST"])
 def scan():
     if "user_id" not in session:
-        return jsonify(success=False, message="Unauthorized access"), 401
+        return jsonify(success=False, message=_("Unauthorized access")), 401
 
     # Rate limit: 15 scans per user per minute
     if not check_rate_limit(f"scan:{session['user_id']}", max_requests=15, window_sec=60):
-        return jsonify(success=False, message="Too many scans. Please wait a moment before trying again."), 429
+        return jsonify(success=False, message=_("Too many scans. Please wait a moment before trying again.")), 429
 
     file = request.files.get("file")
     if not file or not file.filename:
-        return jsonify(success=False, message="No file selected"), 400
+        return jsonify(success=False, message=_("No file selected")), 400
 
     # Extension whitelist
     suffix = Path(secure_filename(file.filename)).suffix.lower()
     if suffix not in _ALLOWED_EXTENSIONS:
-        return jsonify(success=False, message="Unsupported file type. Please upload a JPG, PNG, or PDF."), 400
+        return jsonify(success=False, message=_("Unsupported file type. Please upload a JPG, PNG, or PDF.")), 400
 
-    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(file.filename)}"
+    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}_{secure_filename(file.filename)}"
     file_path = UPLOAD_FOLDER / filename
     file.save(file_path)
     try:
@@ -2170,17 +2215,17 @@ def scan():
                 if pytesseract is None or Image is None:
                     return jsonify(
                         success=False,
-                        message="This PDF needs OCR to read scanned pages, but OCR dependencies are missing. Text-based PDFs still work.",
+                        message=_("This PDF needs OCR to read scanned pages, but OCR dependencies are missing. Text-based PDFs still work."),
                     ), 500
                 if pdfium is None:
                     return jsonify(
                         success=False,
-                        message="PDF rendering support is missing. Run pip install -r requirements.txt, then restart the app.",
+                        message=_("PDF rendering support is missing. Run pip install -r requirements.txt, then restart the app."),
                     ), 500
-                return jsonify(success=False, message="Could not read this PDF. Please try a clearer PDF or an image upload."), 400
+                return jsonify(success=False, message=_("Could not read this PDF. Please try a clearer PDF or an image upload.")), 400
         else:
             if pytesseract is None or Image is None:
-                return jsonify(success=False, message="OCR dependencies are missing. Run pip install -r requirements.txt."), 500
+                return jsonify(success=False, message=_("OCR dependencies are missing. Run pip install -r requirements.txt.")), 500
             image = Image.open(file_path)
             text = ocr_image_to_text(image)
             scan_mode = "image"
@@ -2197,7 +2242,7 @@ def scan():
         return jsonify(
             success=True,
             scan_id=scan_id,
-            message="Overbilling detected." if flagged else "No overbilling detected.",
+            message=_("Overbilling detected.") if flagged else _("No overbilling detected."),
             flagged=flagged,
             report=report,
             text=text,
@@ -2205,10 +2250,10 @@ def scan():
             scan_mode=scan_mode,
         )
     except UnidentifiedImageError:
-        return jsonify(success=False, message="Invalid or corrupted image file."), 400
+        return jsonify(success=False, message=_("Invalid or corrupted image file.")), 400
     except Exception as exc:
         app.logger.exception("Scan failed")
-        return jsonify(success=False, message=f"Scan failed: {exc}"), 500
+        return jsonify(success=False, message=_("Scan failed: %(reason)s", reason=str(exc))), 500
     finally:
         if file_path.exists():
             file_path.unlink()
@@ -2224,7 +2269,7 @@ def result(scan_id):
             (scan_id, session["user_id"]),
         ).fetchone()
     if not row:
-        flash("Scan not found.", "danger")
+        flash(_("Scan not found."), "danger")
         return redirect(url_for("dashboard"))
     flagged = json.loads(row["flagged"] or "{}")
     report = json.loads(row["report"] or "{}")
@@ -2259,19 +2304,19 @@ def export_scan_csv(scan_id):
             (scan_id, session["user_id"]),
         ).fetchone()
     if not row:
-        flash("Scan not found.", "danger")
+        flash(_("Scan not found."), "danger")
         return redirect(url_for("dashboard"))
     report = json.loads(row["report"] or "{}")
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["AyushScan Bill Analysis Report"])
-    writer.writerow(["File", row["filename"]])
-    writer.writerow(["Date", row["timestamp"]])
+    writer.writerow([_("AyushScan Bill Analysis Report")])
+    writer.writerow([_("File"), row["filename"]])
+    writer.writerow([_("Date"), row["timestamp"]])
     if row["illness"] and row["illness"] != "N/A":
-        writer.writerow(["Treatment Context", row["illness"]])
+        writer.writerow([_("Treatment Context"), row["illness"]])
     writer.writerow([])
-    writer.writerow(["Medicine", "Category", "Quantity", "Billed Price (Rs)",
-                     "Expected Price (Rs)", "Overpaid (Rs)", "Confidence"])
+    writer.writerow([_("Medicine"), _("Category"), _("Quantity"), _("Billed Price (Rs)"),
+                     _("Expected Price (Rs)"), _("Overpaid (Rs)"), _("Confidence")])
     for item in report.get("detected_items", []):
         writer.writerow([
             item.get("name", ""),
@@ -2284,16 +2329,16 @@ def export_scan_csv(scan_id):
         ])
     if report.get("non_medicine_items"):
         writer.writerow([])
-        writer.writerow(["Other Bill Entries", "Category", "Quantity", "Amount (Rs)"])
+        writer.writerow([_("Other Bill Entries"), _("Category"), _("Quantity"), _("Amount (Rs)")])
         for item in report["non_medicine_items"]:
             writer.writerow([item.get("name", ""), item.get("category_type", ""),
                              item.get("quantity", ""), item.get("line_total", "")])
     summary = report.get("summary", {})
     writer.writerow([])
-    writer.writerow(["Summary"])
-    writer.writerow(["Total Medicines Detected", summary.get("total_detected", 0)])
-    writer.writerow(["Overpriced Items", summary.get("overpriced_count", 0)])
-    writer.writerow(["Estimated Savings (Rs)", summary.get("estimated_savings", 0)])
+    writer.writerow([_("Summary")])
+    writer.writerow([_("Total Medicines Detected"), summary.get("total_detected", 0)])
+    writer.writerow([_("Overpriced Items"), summary.get("overpriced_count", 0)])
+    writer.writerow([_("Estimated Savings (Rs)"), summary.get("estimated_savings", 0)])
     buf.seek(0)
     return Response(
         buf.getvalue(),
@@ -2307,7 +2352,7 @@ def export_scan_pdf(scan_id):
     if "user_id" not in session:
         return redirect(url_for("login"))
     if not _reportlab_available:
-        flash("PDF export requires reportlab. Run: pip install reportlab", "danger")
+        flash(_("PDF export requires reportlab. Run: pip install reportlab"), "danger")
         return redirect(url_for("result", scan_id=scan_id))
     with get_db_connection() as conn:
         row = conn.execute(
@@ -2315,7 +2360,7 @@ def export_scan_pdf(scan_id):
             (scan_id, session["user_id"]),
         ).fetchone()
     if not row:
-        flash("Scan not found.", "danger")
+        flash(_("Scan not found."), "danger")
         return redirect(url_for("dashboard"))
     report = json.loads(row["report"] or "{}")
     buf = io.BytesIO()
@@ -2323,19 +2368,19 @@ def export_scan_pdf(scan_id):
     styles = getSampleStyleSheet()
     green = _rl_colors.HexColor("#2db646")
     elements = []
-    elements.append(Paragraph("AyushScan — Bill Analysis Report", styles["Title"]))
+    elements.append(Paragraph(_("AyushScan — Bill Analysis Report"), styles["Title"]))
     elements.append(Spacer(1, 6))
-    elements.append(Paragraph(f"<b>File:</b> {row['filename']}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Date:</b> {row['timestamp']}", styles["Normal"]))
+    elements.append(Paragraph(_("<b>File:</b> %(filename)s", filename=row["filename"]), styles["Normal"]))
+    elements.append(Paragraph(_("<b>Date:</b> %(timestamp)s", timestamp=row["timestamp"]), styles["Normal"]))
     if row["illness"] and row["illness"] != "N/A":
-        elements.append(Paragraph(f"<b>Treatment:</b> {row['illness'][:300]}", styles["Normal"]))
+        elements.append(Paragraph(_("<b>Treatment:</b> %(illness)s", illness=row["illness"][:300]), styles["Normal"]))
     elements.append(Spacer(1, 10))
     summary = report.get("summary", {})
-    elements.append(Paragraph("Summary", styles["Heading2"]))
+    elements.append(Paragraph(_("Summary"), styles["Heading2"]))
     sum_data = [
-        ["Total medicines detected", str(summary.get("total_detected", 0))],
-        ["Overpriced items (high/medium confidence)", str(summary.get("overpriced_count", 0))],
-        ["Estimated savings", f"Rs {summary.get('estimated_savings', 0)}"],
+        [_("Total medicines detected"), str(summary.get("total_detected", 0))],
+        [_("Overpriced items (high/medium confidence)"), str(summary.get("overpriced_count", 0))],
+        [_("Estimated savings"), _("Rs %(amount)s", amount=summary.get('estimated_savings', 0))],
     ]
     sum_table = Table(sum_data, colWidths=[300, 180])
     sum_table.setStyle(TableStyle([
@@ -2349,8 +2394,8 @@ def export_scan_pdf(scan_id):
     elements.append(Spacer(1, 10))
     items = report.get("detected_items", [])
     if items:
-        elements.append(Paragraph("Detected Medicines", styles["Heading2"]))
-        tdata = [["Medicine", "Qty", "Billed (Rs)", "Expected (Rs)", "Overpaid (Rs)", "Confidence"]]
+        elements.append(Paragraph(_("Detected Medicines"), styles["Heading2"]))
+        tdata = [[_("Medicine"), _("Qty"), _("Billed (Rs)"), _("Expected (Rs)"), _("Overpaid (Rs)"), _("Confidence")]]
         for item in items:
             tdata.append([
                 Paragraph(item.get("name", "")[:40], styles["Normal"]),
@@ -2374,7 +2419,7 @@ def export_scan_pdf(scan_id):
         elements.append(med_table)
     if row["covered"] and row["covered"] != "N/A":
         elements.append(Spacer(1, 10))
-        elements.append(Paragraph("Ayushman Bharat / PM-JAY Note", styles["Heading2"]))
+        elements.append(Paragraph(_("Ayushman Bharat / PM-JAY Note"), styles["Heading2"]))
         elements.append(Paragraph(row["covered"][:600], styles["Normal"]))
     doc.build(elements)
     buf.seek(0)
@@ -2412,9 +2457,9 @@ def update_profile():
                 ),
             )
             conn.commit()
-        return redirect(url_for("dashboard", message="Profile updated successfully"))
+        return redirect(url_for("dashboard", message=_("Profile updated successfully")))
     except sqlite3.IntegrityError:
-        return redirect(url_for("dashboard", message="Username already taken"))
+        return redirect(url_for("dashboard", message=_("Username already taken")))
 
 
 @app.route("/change_password", methods=["POST"])
@@ -2426,16 +2471,16 @@ def change_password():
     new = request.form.get("new_password", "")
     confirm_new = request.form.get("confirm_new_password", "")
     if current != confirm:
-        return redirect(url_for("dashboard", message="Current passwords do not match"))
+        return redirect(url_for("dashboard", message=_("Current passwords do not match")))
     if new != confirm_new:
-        return redirect(url_for("dashboard", message="New passwords do not match"))
+        return redirect(url_for("dashboard", message=_("New passwords do not match")))
     with get_db_connection() as conn:
         user = conn.execute("SELECT password FROM users WHERE id = ?", (session["user_id"],)).fetchone()
         if not user or not is_password_valid(user["password"], current):
-            return redirect(url_for("dashboard", message="Incorrect current password"))
+            return redirect(url_for("dashboard", message=_("Incorrect current password")))
         conn.execute("UPDATE users SET password = ? WHERE id = ?", (generate_password_hash(new), session["user_id"]))
         conn.commit()
-    return redirect(url_for("dashboard", message="Password changed successfully"))
+    return redirect(url_for("dashboard", message=_("Password changed successfully")))
 
 
 @app.route("/forgot_password", methods=["POST"])
@@ -2446,12 +2491,12 @@ def forgot_password():
         email = request.form.get("email", "").strip().lower()
     if not email:
         if request.is_json:
-            return jsonify(success=False, message="Email is required."), 400
-        return redirect(url_for("dashboard", message="Email is required."))
+            return jsonify(success=False, message=_("Email is required.")), 400
+        return redirect(url_for("dashboard", message=_("Email is required.")))
 
     # Rate limit: 5 OTP requests per email per 5 minutes
     if not check_rate_limit(f"otp:{email}", max_requests=5, window_sec=300):
-        msg = "Too many OTP requests. Please wait 5 minutes before requesting a new one."
+        msg = _("Too many OTP requests. Please wait 5 minutes before requesting a new one.")
         if request.is_json:
             return jsonify(success=False, message=msg), 429
         return redirect(url_for("dashboard", message=msg))
@@ -2460,8 +2505,8 @@ def forgot_password():
         user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if not user:
             if request.is_json:
-                return jsonify(success=False, message="No account found with that email."), 404
-            return redirect(url_for("dashboard", message="No account with that email"))
+                return jsonify(success=False, message=_("No account found with that email.")), 404
+            return redirect(url_for("dashboard", message=_("No account with that email")))
         otp = str(random.randint(100000, 999999))
         conn.execute(
             "DELETE FROM otp_tokens WHERE email = ? AND purpose = 'forgot_password' AND used = 0",
@@ -2484,7 +2529,7 @@ def verify_otp():
     email = (data.get("email") or "").strip().lower()
     otp = (data.get("otp") or "").strip()
     if not email or not otp:
-        return jsonify(success=False, message="Email and OTP are required."), 400
+        return jsonify(success=False, message=_("Email and OTP are required.")), 400
     with get_db_connection() as conn:
         row = conn.execute(
             """SELECT id FROM otp_tokens
@@ -2494,9 +2539,9 @@ def verify_otp():
             (email, otp),
         ).fetchone()
     if not row:
-        return jsonify(success=False, message="Invalid or expired OTP. Please request a new one."), 400
+        return jsonify(success=False, message=_("Invalid or expired OTP. Please request a new one.")), 400
     session["otp_verified_email"] = email
-    return jsonify(success=True, message="OTP verified. Please set your new password.")
+    return jsonify(success=True, message=_("OTP verified. Please set your new password."))
 
 
 @app.route("/reset_password", methods=["POST"])
@@ -2506,11 +2551,11 @@ def reset_password():
     confirm_password = data.get("confirm_password") or ""
     verified_email = session.get("otp_verified_email")
     if not verified_email:
-        return jsonify(success=False, message="Session expired. Please restart the forgot password process."), 400
+        return jsonify(success=False, message=_("Session expired. Please restart the forgot password process.")), 400
     if len(new_password) < 8:
-        return jsonify(success=False, message="Password must be at least 8 characters."), 400
+        return jsonify(success=False, message=_("Password must be at least 8 characters.")), 400
     if new_password != confirm_password:
-        return jsonify(success=False, message="Passwords do not match."), 400
+        return jsonify(success=False, message=_("Passwords do not match.")), 400
     with get_db_connection() as conn:
         result = conn.execute(
             "UPDATE users SET password = ? WHERE email = ?",
@@ -2522,9 +2567,9 @@ def reset_password():
         )
         conn.commit()
         if result.rowcount == 0:
-            return jsonify(success=False, message="Account not found."), 404
+            return jsonify(success=False, message=_("Account not found.")), 404
     session.pop("otp_verified_email", None)
-    return jsonify(success=True, message="Password reset successfully. You can now log in with your new password.")
+    return jsonify(success=True, message=_("Password reset successfully. You can now log in with your new password."))
 
 
 @app.route("/delete_account", methods=["POST"])
@@ -2535,11 +2580,19 @@ def delete_account():
     with get_db_connection() as conn:
         user = conn.execute("SELECT password FROM users WHERE id = ?", (session["user_id"],)).fetchone()
         if not user or not is_password_valid(user["password"], password):
-            return redirect(url_for("dashboard", message="Incorrect password"))
+            return redirect(url_for("dashboard", message=_("Incorrect password")))
         conn.execute("DELETE FROM users WHERE id = ?", (session["user_id"],))
         conn.commit()
     session.clear()
-    return redirect(url_for("login", message="Account deleted successfully"))
+    return redirect(url_for("login", message=_("Account deleted successfully")))
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.errorhandler(404)

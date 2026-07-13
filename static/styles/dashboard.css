@@ -17,6 +17,7 @@
   --sidebar-hover: #37513e;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.07);
 }
 
 /* ===== RESET & BASE STYLES ===== */
@@ -155,7 +156,7 @@ body {
   background: var(--white);
   padding: 1.25rem 2rem;
   border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: var(--shadow-card);
   margin-bottom: 2rem;
   border-bottom: 3px solid #2db646;
 }
@@ -240,17 +241,6 @@ body {
   display: block;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ===== DASHBOARD CARDS ===== */
 .dashboard-grid {
   display: grid;
@@ -263,7 +253,7 @@ body {
   background: var(--white);
   border-radius: 16px;
   padding: 1.75rem 2rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: var(--shadow-card);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   cursor: pointer;
   border-top: 4px solid #2db646;
@@ -348,7 +338,7 @@ body {
   background: var(--white);
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: var(--shadow-card);
   max-width: 600px;
   margin: 0 auto;
   border-top: 4px solid #2db646;
@@ -386,12 +376,78 @@ body {
   color: var(--text-light);
 }
 
+.scan-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--info);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+
+.empty-state::before {
+  content: "\1F4C4";
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.6;
+}
+
+.hospital-skeleton {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--white);
+}
+
+.skel-line {
+  height: 12px;
+  border-radius: 4px;
+  margin-bottom: 0.6rem;
+  background: linear-gradient(90deg, var(--light-gray) 25%, var(--border) 50%, var(--light-gray) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skel-line-title {
+  width: 55%;
+  height: 16px;
+}
+
+.skel-line-short {
+  width: 35%;
+  margin-bottom: 0;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 /* ===== PROFILE SECTION ===== */
 .profile-container {
   background: var(--white);
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: var(--shadow-card);
   max-width: 800px;
   margin: 0 auto;
   border-top: 4px solid #2db646;
@@ -466,103 +522,6 @@ body {
   outline: none;
   border-color: var(--info);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* ===== CHATBOT SECTION ===== */
-.chatbot-container {
-  background: var(--white);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  height: 600px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.chatbot-header {
-  background: var(--sidebar-bg);
-  color: var(--white);
-  padding: 1rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.chatbot-messages {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto;
-  background: var(--light-gray);
-}
-
-.message {
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.message.user {
-  flex-direction: row-reverse;
-}
-
-.message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.message.bot .message-avatar {
-  background: var(--info);
-  color: var(--white);
-}
-
-.message.user .message-avatar {
-  background: var(--success);
-  color: var(--white);
-}
-
-.message-content {
-  background: var(--white);
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  max-width: 70%;
-  box-shadow: var(--shadow);
-}
-
-.message.user .message-content {
-  background: var(--info);
-  color: var(--white);
-}
-
-.chatbot-input {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border);
-  background: var(--white);
-}
-
-.input-group {
-  display: flex;
-  gap: 1rem;
-}
-
-.chat-input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 1rem;
-  outline: none;
-}
-
-.chat-input:focus {
-  border-color: var(--info);
 }
 
 .send-button {
@@ -697,27 +656,6 @@ body {
 .sidebar-overlay.active {
   display: block;
 }
-.form-group.dual {
-  display: flex;
-  gap: 1rem;
-}
-
-.form-group.dual .half {
-  flex: 1;
-}
-.form-group-inline {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.profile-actions {
-  margin-top: 2.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
-}
 
 .btn-secondary {
   background-color: #f5f5f5;
@@ -797,10 +735,20 @@ body {
   font-size: 1.5rem;
   cursor: pointer;
   color: #999;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  line-height: 1;
 }
 
 .close:hover {
   color: #333;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
 }
 
 /* Modal Buttons */
@@ -829,12 +777,6 @@ body {
   background-color: #c0392b;
 }
 
-.logout-buttons {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -849,38 +791,9 @@ body {
 
 /* Mobile Responsiveness */
 @media (max-width: 600px) {
-  .form-group-inline {
-    flex-direction: column;
-  }
-
-  .logout-buttons {
-    flex-direction: column;
-  }
-
   .profile-container {
     padding: 1.5rem;
   }
-}
-/* Update Profile Button */
-.btn-update {
-  display: block;
-  margin: 2rem auto 0 auto;
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.9rem 2rem;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-update:hover {
-  background: #5e8b6f;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 .profile-heading {
   font-size: 1.6rem;

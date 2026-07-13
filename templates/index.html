@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AyushScan - {{ 'Welcome' if lang == 'english' else 'स्वागत है' }}</title>
+    <title>{{ _("AyushScan - Welcome") }}</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -13,56 +13,57 @@
   <body>
     <div class="container">
 
-    
+
       <!-- 🔰 Language Selector -->
       <form
         action="/set_language"
         method="POST"
         style="text-align: right; margin-bottom: 20px"
       >
-        <label for="language" style="margin-right: 10px">🌐 {{ 'Language' if lang == 'english' else 'भाषा' }}:</label>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <label for="language" style="margin-right: 10px">🌐 {{ _("Language") }}:</label>
         <select
           name="language"
           id="language"
           onchange="this.form.submit()"
           style="padding: 5px"
         >
-          <option value="english" {% if lang == 'english' %}selected{% endif %}>English</option>
-          <option value="hindi" {% if lang == 'hindi' %}selected{% endif %}>हिन्दी</option>
+          <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+          <option value="hi" {% if lang == 'hi' %}selected{% endif %}>हिन्दी</option>
         </select>
       </form>
       <!-- 🔰 End Language Selector -->
 
-      <div class="heading">{{ 'Welcome to' if lang == 'english' else 'स्वागत है' }}</div>
-      <div class="main-title">AyushScan</div>
+      <div class="heading">{{ _("Welcome to") }}</div>
+      <div class="main-title">{{ _("AyushScan") }}</div>
       <div class="logo-wrapper">
-        <img src="{{ url_for('static', filename='images/LOGO.png') }}" alt="AyushScan Logo" class="logo-img" />
+        <img src="{{ url_for('static', filename='images/LOGO.png') }}" alt="{{ _('AyushScan Logo') }}" class="logo-img" width="122" height="100" />
       </div>
-      <div class="subheading">{{ 'Let’s Begin Your' if lang == 'english' else 'आइए शुरू करें आपका' }}</div>
+      <div class="subheading">{{ _("Let’s Begin Your") }}</div>
 
       <div class="button-group">
         <button
           class="btn btn-start"
           onclick="window.location.href='{{ url_for('signup') }}'"
         >
-          {{ 'Journey' if lang == 'english' else 'सफर' }}
+          {{ _("Journey") }}
         </button>
         <button
           class="btn btn-about"
           onclick="window.location.href='{{ url_for('about') }}'"
         >
-          {{ 'About Us' if lang == 'english' else 'हमारे बारे में' }}
+          {{ _("About Us") }}
         </button>
       </div>
 
       <div class="subheading">
-        {{ 'Already a user?' if lang == 'english' else 'पहले से यूज़र हैं?' }}
+        {{ _("Already a user?") }}
       </div>
       <button
         class="btn btn-login"
         onclick="window.location.href='{{ url_for('login') }}'"
       >
-        {{ 'LOGIN' if lang == 'english' else 'लॉगिन करें' }}
+        {{ _("LOGIN") }}
       </button>
     </div>
   </body>

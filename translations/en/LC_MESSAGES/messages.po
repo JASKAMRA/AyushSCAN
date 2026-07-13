@@ -1,0 +1,1463 @@
+# English translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-07-13 15:49+0530\n"
+"PO-Revision-Date: 2026-07-13 14:54+0530\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app.py:298
+msgid "Lab Test"
+msgstr ""
+
+#: app.py:299
+msgid "Consultation"
+msgstr ""
+
+#: app.py:300
+msgid "Room Charge"
+msgstr ""
+
+#: app.py:301
+msgid "Procedure"
+msgstr ""
+
+#: app.py:302
+msgid "GST"
+msgstr ""
+
+#: app.py:303 app.py:2303 app.py:2383 templates/result.html:57
+msgid "Medicine"
+msgstr ""
+
+#: app.py:310
+msgid "Low"
+msgstr ""
+
+#: app.py:311
+msgid "Medium"
+msgstr ""
+
+#: app.py:312
+msgid "High"
+msgstr ""
+
+#: app.py:731
+msgid "Email is not configured. OTP has been logged for local demo."
+msgstr ""
+
+#: app.py:734
+msgid "Your AyushScan OTP"
+msgstr ""
+
+#: app.py:738
+#, python-format
+msgid ""
+"Your AyushScan OTP for %(purpose)s is %(otp)s. It is valid for this "
+"session."
+msgstr ""
+
+#: app.py:749
+msgid "OTP sent to your email."
+msgstr ""
+
+#: app.py:752
+#, python-format
+msgid "Could not send OTP email: %(reason)s"
+msgstr ""
+
+#: app.py:1995
+msgid "Contact form is not configured. Please email us directly."
+msgstr ""
+
+#: app.py:2008
+msgid "Message sent successfully!"
+msgstr ""
+
+#: app.py:2011
+msgid "Could not send message. Please try again later."
+msgstr ""
+
+#: app.py:2023
+msgid "Please fill all required fields."
+msgstr ""
+
+#: app.py:2041
+msgid "Email or username already registered."
+msgstr ""
+
+#: app.py:2053
+msgid "Too many login attempts. Please wait 1 minute."
+msgstr ""
+
+#: app.py:2061
+msgid "Invalid credentials"
+msgstr ""
+
+#: app.py:2067
+msgid "Logged out successfully"
+msgstr ""
+
+#: app.py:2119
+msgid "Please log in first."
+msgstr ""
+
+#: app.py:2161
+msgid "Unauthorized"
+msgstr ""
+
+#: app.py:2172 templates/dashboard.html:570
+msgid "Hospital search is temporarily unavailable."
+msgstr ""
+
+#: app.py:2178
+msgid "Unauthorized access"
+msgstr ""
+
+#: app.py:2182
+msgid "Too many scans. Please wait a moment before trying again."
+msgstr ""
+
+#: app.py:2186
+msgid "No file selected"
+msgstr ""
+
+#: app.py:2191
+msgid "Unsupported file type. Please upload a JPG, PNG, or PDF."
+msgstr ""
+
+#: app.py:2203
+msgid ""
+"This PDF needs OCR to read scanned pages, but OCR dependencies are "
+"missing. Text-based PDFs still work."
+msgstr ""
+
+#: app.py:2208
+msgid ""
+"PDF rendering support is missing. Run pip install -r requirements.txt, "
+"then restart the app."
+msgstr ""
+
+#: app.py:2210
+msgid "Could not read this PDF. Please try a clearer PDF or an image upload."
+msgstr ""
+
+#: app.py:2213
+msgid "OCR dependencies are missing. Run pip install -r requirements.txt."
+msgstr ""
+
+#: app.py:2230
+msgid "Overbilling detected."
+msgstr ""
+
+#: app.py:2230
+msgid "No overbilling detected."
+msgstr ""
+
+#: app.py:2238
+msgid "Invalid or corrupted image file."
+msgstr ""
+
+#: app.py:2241
+#, python-format
+msgid "Scan failed: %(reason)s"
+msgstr ""
+
+#: app.py:2257 app.py:2292 app.py:2348
+msgid "Scan not found."
+msgstr ""
+
+#: app.py:2297
+msgid "AyushScan Bill Analysis Report"
+msgstr ""
+
+#: app.py:2298
+msgid "File"
+msgstr ""
+
+#: app.py:2299
+msgid "Date"
+msgstr ""
+
+#: app.py:2301
+msgid "Treatment Context"
+msgstr ""
+
+#: app.py:2303 app.py:2317 templates/dashboard.html:395
+#: templates/result.html:58 templates/result.html:175
+msgid "Category"
+msgstr ""
+
+#: app.py:2303 app.py:2317 templates/result.html:176
+msgid "Quantity"
+msgstr ""
+
+#: app.py:2303
+msgid "Billed Price (Rs)"
+msgstr ""
+
+#: app.py:2304
+msgid "Expected Price (Rs)"
+msgstr ""
+
+#: app.py:2304 app.py:2383
+msgid "Overpaid (Rs)"
+msgstr ""
+
+#: app.py:2304 app.py:2383 templates/result.html:64
+msgid "Confidence"
+msgstr ""
+
+#: app.py:2317
+msgid "Other Bill Entries"
+msgstr ""
+
+#: app.py:2317 templates/result.html:177
+msgid "Amount (Rs)"
+msgstr ""
+
+#: app.py:2323 app.py:2364
+msgid "Summary"
+msgstr ""
+
+#: app.py:2324
+msgid "Total Medicines Detected"
+msgstr ""
+
+#: app.py:2325
+msgid "Overpriced Items"
+msgstr ""
+
+#: app.py:2326
+msgid "Estimated Savings (Rs)"
+msgstr ""
+
+#: app.py:2340
+msgid "PDF export requires reportlab. Run: pip install reportlab"
+msgstr ""
+
+#: app.py:2356
+msgid "AyushScan — Bill Analysis Report"
+msgstr ""
+
+#: app.py:2358
+#, python-format
+msgid "<b>File:</b> %(filename)s"
+msgstr ""
+
+#: app.py:2359
+#, python-format
+msgid "<b>Date:</b> %(timestamp)s"
+msgstr ""
+
+#: app.py:2361
+#, python-format
+msgid "<b>Treatment:</b> %(illness)s"
+msgstr ""
+
+#: app.py:2366
+msgid "Total medicines detected"
+msgstr ""
+
+#: app.py:2367
+msgid "Overpriced items (high/medium confidence)"
+msgstr ""
+
+#: app.py:2368
+msgid "Estimated savings"
+msgstr ""
+
+#: app.py:2368 templates/dashboard.html:161 templates/result.html:93
+#, python-format
+msgid "Rs %(amount)s"
+msgstr ""
+
+#: app.py:2382
+msgid "Detected Medicines"
+msgstr ""
+
+#: app.py:2383
+msgid "Qty"
+msgstr ""
+
+#: app.py:2383
+msgid "Billed (Rs)"
+msgstr ""
+
+#: app.py:2383
+msgid "Expected (Rs)"
+msgstr ""
+
+#: app.py:2407
+msgid "Ayushman Bharat / PM-JAY Note"
+msgstr ""
+
+#: app.py:2445
+msgid "Profile updated successfully"
+msgstr ""
+
+#: app.py:2447
+msgid "Username already taken"
+msgstr ""
+
+#: app.py:2459
+msgid "Current passwords do not match"
+msgstr ""
+
+#: app.py:2461
+msgid "New passwords do not match"
+msgstr ""
+
+#: app.py:2465
+msgid "Incorrect current password"
+msgstr ""
+
+#: app.py:2468
+msgid "Password changed successfully"
+msgstr ""
+
+#: app.py:2479 app.py:2480
+msgid "Email is required."
+msgstr ""
+
+#: app.py:2484
+msgid "Too many OTP requests. Please wait 5 minutes before requesting a new one."
+msgstr ""
+
+#: app.py:2493
+msgid "No account found with that email."
+msgstr ""
+
+#: app.py:2494
+msgid "No account with that email"
+msgstr ""
+
+#: app.py:2517
+msgid "Email and OTP are required."
+msgstr ""
+
+#: app.py:2527
+msgid "Invalid or expired OTP. Please request a new one."
+msgstr ""
+
+#: app.py:2529
+msgid "OTP verified. Please set your new password."
+msgstr ""
+
+#: app.py:2539
+msgid "Session expired. Please restart the forgot password process."
+msgstr ""
+
+#: app.py:2541 templates/dashboard.html:578 templates/login.html:99
+msgid "Password must be at least 8 characters."
+msgstr ""
+
+#: app.py:2543 templates/dashboard.html:579 templates/login.html:100
+msgid "Passwords do not match."
+msgstr ""
+
+#: app.py:2555
+msgid "Account not found."
+msgstr ""
+
+#: app.py:2557
+msgid "Password reset successfully. You can now log in with your new password."
+msgstr ""
+
+#: app.py:2568
+msgid "Incorrect password"
+msgstr ""
+
+#: app.py:2572
+msgid "Account deleted successfully"
+msgstr ""
+
+#: templates/404.html:6
+msgid "Page Not Found - AyushScan"
+msgstr ""
+
+#: templates/404.html:15
+msgid "Page not found"
+msgstr ""
+
+#: templates/404.html:16
+msgid "The page you requested is not available."
+msgstr ""
+
+#: templates/404.html:17
+msgid "Go to dashboard"
+msgstr ""
+
+#: templates/500.html:6
+msgid "Server Error - AyushScan"
+msgstr ""
+
+#: templates/500.html:15
+msgid "Something went wrong"
+msgstr ""
+
+#: templates/500.html:16
+msgid "AyushScan could not complete that request. Please try again in a moment."
+msgstr ""
+
+#: templates/500.html:17
+msgid "Return to dashboard"
+msgstr ""
+
+#: templates/about.html:6
+msgid "About - AyushScan"
+msgstr ""
+
+#: templates/about.html:15
+msgid "Back to Home"
+msgstr ""
+
+#: templates/about.html:18 templates/index.html:54
+msgid "About Us"
+msgstr ""
+
+#: templates/about.html:20
+msgid "Our Vision"
+msgstr ""
+
+#: templates/about.html:22
+msgid ""
+"We aim to make healthcare billing transparent, understandable, and "
+"accessible for everyone. AyushScan empowers users to detect overbilling, "
+"decode complex terms, and get support in their own language — with built-"
+"in GPS to find nearby government hospitals and access to government "
+"health schemes."
+msgstr ""
+
+#: templates/about.html:25
+msgid "What We Do"
+msgstr ""
+
+#: templates/about.html:28
+msgid "Scan Medical Bills"
+msgstr ""
+
+#: templates/about.html:29
+msgid "Upload your medical bills and get instant insights powered by AI."
+msgstr ""
+
+#: templates/about.html:32
+msgid "Detect Overbilling"
+msgstr ""
+
+#: templates/about.html:33
+msgid "We identify inflated charges and unnecessary additions in your bill."
+msgstr ""
+
+#: templates/about.html:36
+msgid "Simple Explanations"
+msgstr ""
+
+#: templates/about.html:37
+msgid "Complex terms are simplified for easy understanding — no jargon."
+msgstr ""
+
+#: templates/about.html:40
+msgid "Support for Hindi & Voice"
+msgstr ""
+
+#: templates/about.html:41
+msgid "Interact with the system in Hindi or using voice — comfort comes first."
+msgstr ""
+
+#: templates/about.html:44
+msgid "Nearby Govt. Hospitals"
+msgstr ""
+
+#: templates/about.html:45
+msgid "Using GPS, we help you locate nearby affordable and trusted hospitals."
+msgstr ""
+
+#: templates/about.html:48
+msgid "Health Scheme Suggestions"
+msgstr ""
+
+#: templates/about.html:49
+msgid ""
+"Based on your profile and bill, get suggested govt. schemes you may "
+"qualify for."
+msgstr ""
+
+#: templates/about.html:52
+msgid "Ask Our Chatbot"
+msgstr ""
+
+#: templates/about.html:53
+msgid ""
+"Got doubts about your health or billing? Ask our AI-powered chatbot "
+"instantly."
+msgstr ""
+
+#: templates/about.html:61
+msgid "Contact Us"
+msgstr ""
+
+#: templates/about.html:63
+msgid "All queries will be answered in 24–48 hours"
+msgstr ""
+
+#: templates/about.html:69
+msgid "Your Name"
+msgstr ""
+
+#: templates/about.html:75
+msgid "Your Email"
+msgstr ""
+
+#: templates/about.html:81
+msgid "Your Message..."
+msgstr ""
+
+#: templates/about.html:86
+msgid "Send Message"
+msgstr ""
+
+#: templates/about.html:92
+msgid "Our Team"
+msgstr ""
+
+#: templates/about.html:101
+msgid "Built With ❤️"
+msgstr ""
+
+#: templates/about.html:102
+msgid "It's our mission to make healthcare smarter and simpler."
+msgstr ""
+
+#: templates/about.html:105
+msgid "© 2025 AyushScan."
+msgstr ""
+
+#: templates/chatbot.html:6
+msgid "AyushScan - AI Medical Assistant"
+msgstr ""
+
+#: templates/chatbot.html:56
+msgid "Ayu - AI Medical Assistant"
+msgstr ""
+
+#: templates/chatbot.html:57 templates/result.html:232
+msgid "Back to Dashboard"
+msgstr ""
+
+#: templates/chatbot.html:61
+msgid "Medicine Price"
+msgstr ""
+
+#: templates/chatbot.html:62
+msgid "Ask AI"
+msgstr ""
+
+#: templates/chatbot.html:63 templates/chatbot.html:95
+msgid "Listen"
+msgstr ""
+
+#: templates/chatbot.html:64 templates/chatbot.html:97
+msgid "Speech On"
+msgstr ""
+
+#: templates/chatbot.html:65
+msgid "Voice language for mic & speech"
+msgstr ""
+
+#: templates/chatbot.html:74
+msgid ""
+"Hello. Ask about medicine prices, a bill charge, nearby hospitals, or "
+"Ayushman Bharat coverage."
+msgstr ""
+
+#: templates/chatbot.html:82
+msgid "Type your message in English, Hindi, or Hinglish..."
+msgstr ""
+
+#: templates/chatbot.html:83
+msgid "Send"
+msgstr ""
+
+#: templates/chatbot.html:89
+msgid "Thinking…"
+msgstr ""
+
+#: templates/chatbot.html:90
+msgid "Sorry, I could not understand that."
+msgstr ""
+
+#: templates/chatbot.html:91
+#, python-format
+msgid "Note: AI unavailable%%(reason)s — showing a fallback answer."
+msgstr ""
+
+#: templates/chatbot.html:92
+msgid "Assistant is temporarily unavailable. Please try again."
+msgstr ""
+
+#: templates/chatbot.html:93
+msgid "Speech recognition is not supported in this browser."
+msgstr ""
+
+#: templates/chatbot.html:94
+msgid "Listening…"
+msgstr ""
+
+#: templates/chatbot.html:96
+msgid "Could not hear clearly. Please try again."
+msgstr ""
+
+#: templates/chatbot.html:98
+msgid "Speech Off"
+msgstr ""
+
+#: templates/chatbot.html:99
+#, python-format
+msgid "Hindi voice: %%(name)s"
+msgstr ""
+
+#: templates/chatbot.html:100
+msgid ""
+"No Hindi voice found — install from Windows Settings › Time & Language › "
+"Speech"
+msgstr ""
+
+#: templates/dashboard.html:6
+#, python-format
+msgid "AyushScan - %(page)s"
+msgstr ""
+
+#: templates/dashboard.html:6 templates/dashboard.html:42
+#: templates/dashboard.html:81 templates/result.html:17
+msgid "Dashboard"
+msgstr ""
+
+#: templates/dashboard.html:33 templates/dashboard.html:572
+#: templates/index.html:37
+msgid "AyushScan"
+msgstr ""
+
+#: templates/dashboard.html:35
+msgid "Transparent healthcare billing"
+msgstr ""
+
+#: templates/dashboard.html:48 templates/dashboard.html:117
+msgid "Scanner"
+msgstr ""
+
+#: templates/dashboard.html:54 templates/dashboard.html:141
+msgid "Hospitals Nearby"
+msgstr ""
+
+#: templates/dashboard.html:60 templates/dashboard.html:278
+msgid "Scan History"
+msgstr ""
+
+#: templates/dashboard.html:66
+msgid "Profile"
+msgstr ""
+
+#: templates/dashboard.html:79
+msgid "Menu"
+msgstr ""
+
+#: templates/dashboard.html:111
+msgid "Total Scans"
+msgstr ""
+
+#: templates/dashboard.html:114
+msgid "Upload medical bills and compare detected charges with reference prices."
+msgstr ""
+
+#: templates/dashboard.html:128
+msgid "AI Assistant"
+msgstr ""
+
+#: templates/dashboard.html:131
+msgid "Ask billing, medicine price, hospital, and Ayushman Bharat questions."
+msgstr ""
+
+#: templates/dashboard.html:134
+msgid "Chat Messages"
+msgstr ""
+
+#: templates/dashboard.html:144
+msgid ""
+"Use browser location to find nearby hospitals and filter possible "
+"Ayushman Bharat options."
+msgstr ""
+
+#: templates/dashboard.html:147
+msgid "Location based"
+msgstr ""
+
+#: templates/dashboard.html:148
+msgid "Live"
+msgstr ""
+
+#: templates/dashboard.html:154
+msgid "Estimated Savings"
+msgstr ""
+
+#: templates/dashboard.html:157
+msgid "Estimated savings from detected overpricing across scan history."
+msgstr ""
+
+#: templates/dashboard.html:160
+msgid "Reference comparison"
+msgstr ""
+
+#: templates/dashboard.html:176
+msgid "Medical Bill Scanner"
+msgstr ""
+
+#: templates/dashboard.html:186
+msgid "Drop your medical bill here"
+msgstr ""
+
+#: templates/dashboard.html:188
+msgid "or click to browse JPG or PNG files"
+msgstr ""
+
+#: templates/dashboard.html:202
+msgid "Selected File:"
+msgstr ""
+
+#: templates/dashboard.html:219
+msgid "Start Scan"
+msgstr ""
+
+#: templates/dashboard.html:227
+msgid "Scanning in progress..."
+msgstr ""
+
+#: templates/dashboard.html:243
+msgid "Find Nearby Hospitals"
+msgstr ""
+
+#: templates/dashboard.html:245
+msgid "Click search to use your browser location."
+msgstr ""
+
+#: templates/dashboard.html:256
+msgid "Show Ayushman Bharat Hospitals"
+msgstr ""
+
+#: templates/dashboard.html:259
+msgid "Search hospitals"
+msgstr ""
+
+#: templates/dashboard.html:295
+msgid "Overbilling detected"
+msgstr ""
+
+#: templates/dashboard.html:298
+msgid "No overbilling detected"
+msgstr ""
+
+#: templates/dashboard.html:304
+msgid "View detailed bill analysis"
+msgstr ""
+
+#: templates/dashboard.html:312
+msgid "Your scan history will appear here once you start scanning documents."
+msgstr ""
+
+#: templates/dashboard.html:320
+msgid "Manage Your Account"
+msgstr ""
+
+#: templates/dashboard.html:327
+#, python-format
+msgid "Status: %(status)s"
+msgstr ""
+
+#: templates/dashboard.html:327
+msgid "Active"
+msgstr ""
+
+#: templates/dashboard.html:334
+msgid "Edit Profile"
+msgstr ""
+
+#: templates/dashboard.html:345 templates/signup.html:33
+#: templates/signup.html:40
+msgid "First Name"
+msgstr ""
+
+#: templates/dashboard.html:355 templates/signup.html:46
+#: templates/signup.html:53
+msgid "Last Name"
+msgstr ""
+
+#: templates/dashboard.html:365 templates/signup.html:61
+msgid "Username"
+msgstr ""
+
+#: templates/dashboard.html:375
+msgid "Email"
+msgstr ""
+
+#: templates/dashboard.html:385
+msgid "State"
+msgstr ""
+
+#: templates/dashboard.html:387
+msgid "-- Select State --"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Maharashtra"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Tamil Nadu"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Karnataka"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "West Bengal"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Telangana"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Andhra Pradesh"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Rajasthan"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Gujarat"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Delhi"
+msgstr ""
+
+#: templates/dashboard.html:388
+msgid "Kerala"
+msgstr ""
+
+#: templates/dashboard.html:397
+msgid "General"
+msgstr ""
+
+#: templates/dashboard.html:398
+msgid "SC (Scheduled Caste)"
+msgstr ""
+
+#: templates/dashboard.html:399
+msgid "ST (Scheduled Tribe)"
+msgstr ""
+
+#: templates/dashboard.html:400
+msgid "EWS (Economically Weaker Section)"
+msgstr ""
+
+#: templates/dashboard.html:404
+msgid "Annual Family Income"
+msgstr ""
+
+#: templates/dashboard.html:406
+msgid "Prefer not to say"
+msgstr ""
+
+#: templates/dashboard.html:407
+msgid "Below ₹1,00,000"
+msgstr ""
+
+#: templates/dashboard.html:408
+msgid "₹1,00,000 – ₹2,00,000"
+msgstr ""
+
+#: templates/dashboard.html:409
+msgid "₹2,00,000 – ₹5,00,000"
+msgstr ""
+
+#: templates/dashboard.html:410
+msgid "Above ₹5,00,000"
+msgstr ""
+
+#: templates/dashboard.html:415
+msgid "Save Changes"
+msgstr ""
+
+#: templates/dashboard.html:424 templates/dashboard.html:455
+msgid "Change Password"
+msgstr ""
+
+#: templates/dashboard.html:430 templates/dashboard.html:488
+#: templates/login.html:118
+msgid "Forgot Password"
+msgstr ""
+
+#: templates/dashboard.html:436 templates/dashboard.html:528
+msgid "Delete Account"
+msgstr ""
+
+#: templates/dashboard.html:442
+msgid "Logout"
+msgstr ""
+
+#: templates/dashboard.html:452 templates/dashboard.html:487
+#: templates/dashboard.html:525 templates/dashboard.html:545
+msgid "Close"
+msgstr ""
+
+#: templates/dashboard.html:460
+msgid "Current Password"
+msgstr ""
+
+#: templates/dashboard.html:466
+msgid "Confirm Current Password"
+msgstr ""
+
+#: templates/dashboard.html:472
+msgid "New Password"
+msgstr ""
+
+#: templates/dashboard.html:478
+msgid "Confirm New Password"
+msgstr ""
+
+#: templates/dashboard.html:481
+msgid "Change"
+msgstr ""
+
+#: templates/dashboard.html:493 templates/login.html:122
+msgid "Enter your registered email — we'll send a 6-digit OTP."
+msgstr ""
+
+#: templates/dashboard.html:495
+msgid "Registered email address"
+msgstr ""
+
+#: templates/dashboard.html:496 templates/login.html:129
+msgid "Send OTP"
+msgstr ""
+
+#: templates/dashboard.html:503
+msgid "Enter the 6-digit OTP sent to your email. Valid for 15 minutes."
+msgstr ""
+
+#: templates/dashboard.html:505 templates/login.html:137
+msgid "6-digit OTP"
+msgstr ""
+
+#: templates/dashboard.html:507 templates/login.html:142
+msgid "Verify OTP"
+msgstr ""
+
+#: templates/dashboard.html:514 templates/login.html:147
+msgid "OTP verified. Set your new password."
+msgstr ""
+
+#: templates/dashboard.html:516 templates/login.html:148
+msgid "New password (min 8 chars)"
+msgstr ""
+
+#: templates/dashboard.html:517 templates/login.html:151
+msgid "Confirm new password"
+msgstr ""
+
+#: templates/dashboard.html:518 templates/login.html:156
+msgid "Reset Password"
+msgstr ""
+
+#: templates/dashboard.html:530
+msgid "This action is irreversible. Confirm your password to delete your account."
+msgstr ""
+
+#: templates/dashboard.html:536 templates/signup.html:122
+msgid "Confirm Password"
+msgstr ""
+
+#: templates/dashboard.html:539
+msgid "Delete"
+msgstr ""
+
+#: templates/dashboard.html:546
+msgid "Action"
+msgstr ""
+
+#: templates/dashboard.html:549
+msgid "OK"
+msgstr ""
+
+#: templates/dashboard.html:556
+msgid "Please select a file first."
+msgstr ""
+
+#: templates/dashboard.html:557
+msgid "Scan"
+msgstr ""
+
+#: templates/dashboard.html:558
+msgid "Scan failed"
+msgstr ""
+
+#: templates/dashboard.html:559
+msgid "Unknown error"
+msgstr ""
+
+#: templates/dashboard.html:560
+msgid "No hospitals found for the selected filter."
+msgstr ""
+
+#: templates/dashboard.html:561
+#, python-format
+msgid "Distance: %%(km)s km"
+msgstr ""
+
+#: templates/dashboard.html:562
+#, python-format
+msgid "Contact: %%(contact)s"
+msgstr ""
+
+#: templates/dashboard.html:563
+msgid "Marked as possible Ayushman Bharat/PM-JAY hospital"
+msgstr ""
+
+#: templates/dashboard.html:564
+msgid "Ayushman Bharat status not confirmed"
+msgstr ""
+
+#: templates/dashboard.html:565
+msgid "Open map"
+msgstr ""
+
+#: templates/dashboard.html:566
+msgid "Browser geolocation is not supported."
+msgstr ""
+
+#: templates/dashboard.html:567
+msgid "Getting location..."
+msgstr ""
+
+#: templates/dashboard.html:568
+#, python-format
+msgid "Location: %%(lat)s, %%(lon)s"
+msgstr ""
+
+#: templates/dashboard.html:569
+msgid "Hospital search failed."
+msgstr ""
+
+#: templates/dashboard.html:571
+msgid ""
+"Location access denied. Enable location permission to search nearby "
+"hospitals."
+msgstr ""
+
+#: templates/dashboard.html:573 templates/login.html:94
+msgid "Please enter your email."
+msgstr ""
+
+#: templates/dashboard.html:574 templates/login.html:95
+msgid "Sending OTP…"
+msgstr ""
+
+#: templates/dashboard.html:575 templates/login.html:96
+msgid "Network error. Please try again."
+msgstr ""
+
+#: templates/dashboard.html:576 templates/login.html:97
+msgid "Please enter the OTP."
+msgstr ""
+
+#: templates/dashboard.html:577 templates/login.html:98
+msgid "Verifying…"
+msgstr ""
+
+#: templates/dashboard.html:580 templates/login.html:101
+msgid "Resetting…"
+msgstr ""
+
+#: templates/dashboard.html:581
+msgid "Password Reset"
+msgstr ""
+
+#: templates/index.html:6
+msgid "AyushScan - Welcome"
+msgstr ""
+
+#: templates/index.html:23
+msgid "Language"
+msgstr ""
+
+#: templates/index.html:36
+msgid "Welcome to"
+msgstr ""
+
+#: templates/index.html:39
+msgid "AyushScan Logo"
+msgstr ""
+
+#: templates/index.html:41
+msgid "Let’s Begin Your"
+msgstr ""
+
+#: templates/index.html:48
+msgid "Journey"
+msgstr ""
+
+#: templates/index.html:59
+msgid "Already a user?"
+msgstr ""
+
+#: templates/index.html:65 templates/login.html:75
+msgid "LOGIN"
+msgstr ""
+
+#: templates/login.html:6
+msgid "AyushScan - Login"
+msgstr ""
+
+#: templates/login.html:20
+msgid "Welcome Back"
+msgstr ""
+
+#: templates/login.html:23
+msgid "Sign in to your AyushScan account"
+msgstr ""
+
+#: templates/login.html:32 templates/signup.html:79
+msgid "Email Address"
+msgstr ""
+
+#: templates/login.html:40 templates/signup.html:87
+msgid "Enter your email"
+msgstr ""
+
+#: templates/login.html:50
+msgid "Password"
+msgstr ""
+
+#: templates/login.html:58 templates/signup.html:105
+msgid "Enter your password"
+msgstr ""
+
+#: templates/login.html:62 templates/signup.html:113
+msgid "Toggle password visibility"
+msgstr ""
+
+#: templates/login.html:68
+msgid "Forgot Password?"
+msgstr ""
+
+#: templates/login.html:82
+msgid "Don't have an account?"
+msgstr ""
+
+#: templates/login.html:83
+msgid "Create one here"
+msgstr ""
+
+#: templates/login.html:89 templates/signup.html:164
+msgid "Please enter a valid email address"
+msgstr ""
+
+#: templates/login.html:90
+msgid "Password must be at least 6 characters"
+msgstr ""
+
+#: templates/login.html:91
+msgid "Login successful!"
+msgstr ""
+
+#: templates/login.html:92
+msgid "Invalid credentials!"
+msgstr ""
+
+#: templates/login.html:93
+msgid "An error occurred. Please try again."
+msgstr ""
+
+#: templates/login.html:102
+msgid " You can now log in."
+msgstr ""
+
+#: templates/login.html:124
+msgid "Email address"
+msgstr ""
+
+#: templates/login.html:135
+msgid "Enter the 6-digit OTP (valid 15 minutes)."
+msgstr ""
+
+#: templates/result.html:6
+msgid "Scan Results - AyushScan"
+msgstr ""
+
+#: templates/result.html:11
+msgid "Scan Results"
+msgstr ""
+
+#: templates/result.html:15
+msgid "Download CSV"
+msgstr ""
+
+#: templates/result.html:16
+msgid "Download PDF"
+msgstr ""
+
+#: templates/result.html:21
+msgid ""
+"Quantities show how many units were read from your bill and how they were"
+" interpreted for comparison. Pack sizes are taken from the bill when "
+"available, then normalized against Jan Aushadhi reference pricing."
+msgstr ""
+
+#: templates/result.html:39
+msgid "Jan Aushadhi Generic Savings Available"
+msgstr ""
+
+#: templates/result.html:41
+#, python-format
+msgid ""
+"\n"
+"          Switching to Jan Aushadhi generic equivalents could save you "
+"approximately\n"
+"          <strong>Rs %(amount)s</strong> on this bill.\n"
+"          "
+msgstr ""
+
+#: templates/result.html:46
+msgid "Find nearest Jan Aushadhi Kendra →"
+msgstr ""
+
+#: templates/result.html:59
+msgid "Quantity on Bill"
+msgstr ""
+
+#: templates/result.html:60
+msgid "Pack Size"
+msgstr ""
+
+#: templates/result.html:61
+msgid "What You Paid"
+msgstr ""
+
+#: templates/result.html:62
+msgid "Jan Aushadhi Expected"
+msgstr ""
+
+#: templates/result.html:63
+msgid "Overpaid By"
+msgstr ""
+
+#: templates/result.html:84
+#, python-format
+msgid "Normalized from Jan Aushadhi %(size)s's"
+msgstr ""
+
+#: templates/result.html:87
+msgid "Not detected"
+msgstr ""
+
+#: templates/result.html:88 templates/result.html:99 templates/result.html:109
+msgid "N/A"
+msgstr ""
+
+#: templates/result.html:91
+msgid "Estimated only"
+msgstr ""
+
+#: templates/result.html:94
+#, python-format
+msgid "%(pct)s%% above reference"
+msgstr ""
+
+#: templates/result.html:118
+msgid "No matching medicines were detected in the bill text."
+msgstr ""
+
+#: templates/result.html:125
+msgid "Structured Report"
+msgstr ""
+
+#: templates/result.html:126
+#, python-format
+msgid "Parser used: %(source)s"
+msgstr ""
+
+#: templates/result.html:127
+#, python-format
+msgid "Total items detected: %(count)s"
+msgstr ""
+
+#: templates/result.html:128
+#, python-format
+msgid "High-confidence overpriced items: %(count)s"
+msgstr ""
+
+#: templates/result.html:129
+#, python-format
+msgid "Estimated savings: Rs %(amount)s"
+msgstr ""
+
+#: templates/result.html:131
+#, python-format
+msgid "Low-confidence items: %(count)s"
+msgstr ""
+
+#: templates/result.html:134
+#, python-format
+msgid "Duplicate detections: %(names)s"
+msgstr ""
+
+#: templates/result.html:137
+#, python-format
+msgid "Invalid or missing prices: %(names)s"
+msgstr ""
+
+#: templates/result.html:146
+msgid "OCR Transcript"
+msgstr ""
+
+#: templates/result.html:153
+msgid "Detected Treatment Context"
+msgstr ""
+
+#: templates/result.html:160
+msgid "Ayushman Bharat Scheme Note"
+msgstr ""
+
+#: templates/result.html:169
+msgid "Other Bill Entries Detected"
+msgstr ""
+
+#: templates/result.html:174
+msgid "Description"
+msgstr ""
+
+#: templates/result.html:199
+msgid "Bill Category Breakdown"
+msgstr ""
+
+#: templates/result.html:214
+msgid "Government Scheme Recommendations"
+msgstr ""
+
+#: templates/result.html:216
+msgid ""
+"Based on the detected treatment, you may be eligible for the following "
+"schemes. Always verify eligibility at the official website."
+msgstr ""
+
+#: templates/result.html:222
+msgid "Eligibility:"
+msgstr ""
+
+#: templates/result.html:224
+msgid "Visit official site →"
+msgstr ""
+
+#: templates/signup.html:6
+msgid "AyushScan - Signup"
+msgstr ""
+
+#: templates/signup.html:20
+msgid "Join AyushScan"
+msgstr ""
+
+#: templates/signup.html:23
+msgid "Create your account to get started"
+msgstr ""
+
+#: templates/signup.html:69
+msgid "Choose a username"
+msgstr ""
+
+#: templates/signup.html:97
+msgid "Create Password"
+msgstr ""
+
+#: templates/signup.html:130
+msgid "Confirm your password"
+msgstr ""
+
+#: templates/signup.html:138
+msgid "Toggle confirm password visibility"
+msgstr ""
+
+#: templates/signup.html:147
+msgid "Sign Up"
+msgstr ""
+
+#: templates/signup.html:154
+msgid "Already have an account?"
+msgstr ""
+
+#: templates/signup.html:155
+msgid "Login here"
+msgstr ""
+
+#: templates/signup.html:161
+msgid "First name is required"
+msgstr ""
+
+#: templates/signup.html:162
+msgid "Last name is required"
+msgstr ""
+
+#: templates/signup.html:163
+msgid "Username must be at least 3 characters"
+msgstr ""
+
+#: templates/signup.html:165
+msgid "Password needs 6+ chars, 1 uppercase, 1 lowercase, 1 number"
+msgstr ""
+
+#: templates/signup.html:166
+msgid "Passwords do not match"
+msgstr ""
+
+#: templates/signup.html:167
+msgid "Please confirm your password"
+msgstr ""
+
+#: templates/signup.html:168
+msgid "Signup failed. Try again."
+msgstr ""
+
+#: templates/signup.html:169
+msgid "Something went wrong. Try again."
+msgstr ""
+
+#~ msgid "Note: AI unavailable%(reason)s — showing a fallback answer."
+#~ msgstr ""
+
+#~ msgid "Hindi voice: %(name)s"
+#~ msgstr ""
+
+#~ msgid "Distance: %(km)s km"
+#~ msgstr ""
+
+#~ msgid "Contact: %(contact)s"
+#~ msgstr ""
+
+#~ msgid "Location: %(lat)s, %(lon)s"
+#~ msgstr ""
+

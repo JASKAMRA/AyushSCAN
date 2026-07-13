@@ -3,23 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scan Results - AyushScan</title>
+    <title>{{ _("Scan Results - AyushScan") }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles/result.css" />
   </head>
   <body>
-    <h2>Scan Results</h2>
+    <h2>{{ _("Scan Results") }}</h2>
 
     <!-- Export buttons -->
     <div class="export-bar">
-      <a href="/result/{{ scan_id }}/export/csv" class="btn-export">&#11015; Download CSV</a>
-      <a href="/result/{{ scan_id }}/export/pdf" class="btn-export">&#11015; Download PDF</a>
-      <a href="/dashboard" class="btn-export" style="background:#6b7280;">&#8592; Dashboard</a>
+      <a href="/result/{{ scan_id }}/export/csv" class="btn-export">&#11015; {{ _("Download CSV") }}</a>
+      <a href="/result/{{ scan_id }}/export/pdf" class="btn-export">&#11015; {{ _("Download PDF") }}</a>
+      <a href="/dashboard" class="btn-export" style="background:#6b7280;">&#8592; {{ _("Dashboard") }}</a>
     </div>
 
     <p class="results-intro">
-      Quantities show how many units were read from your bill and how they were interpreted for comparison.
-      Pack sizes are taken from the bill when available, then normalized against Jan Aushadhi reference pricing.
+      {{ _("Quantities show how many units were read from your bill and how they were interpreted for comparison. Pack sizes are taken from the bill when available, then normalized against Jan Aushadhi reference pricing.") }}
     </p>
 
     {% if report.get('summary', {}).get('low_confidence_disclaimer') %}
@@ -37,12 +36,14 @@
     <div class="ja-banner">
       <span class="ja-icon">&#127968;</span>
       <div>
-        <strong>Jan Aushadhi Generic Savings Available</strong>
+        <strong>{{ _("Jan Aushadhi Generic Savings Available") }}</strong>
         <p>
+          {% trans amount=total_ja_savings.val | round(2) %}
           Switching to Jan Aushadhi generic equivalents could save you approximately
-          <strong>Rs {{ total_ja_savings.val | round(2) }}</strong> on this bill.
+          <strong>Rs {{ amount }}</strong> on this bill.
+          {% endtrans %}
           <a href="https://janaushadhi.gov.in/" target="_blank" rel="noopener">
-            Find nearest Jan Aushadhi Kendra &rarr;
+            {{ _("Find nearest Jan Aushadhi Kendra →") }}
           </a>
         </p>
       </div>
@@ -53,14 +54,14 @@
     <table id="resultsTable">
       <thead>
         <tr>
-          <th>Medicine</th>
-          <th>Category</th>
-          <th>Quantity on Bill</th>
-          <th>Pack Size</th>
-          <th>What You Paid</th>
-          <th>Jan Aushadhi Expected</th>
-          <th>Overpaid By</th>
-          <th>Confidence</th>
+          <th>{{ _("Medicine") }}</th>
+          <th>{{ _("Category") }}</th>
+          <th>{{ _("Quantity on Bill") }}</th>
+          <th>{{ _("Pack Size") }}</th>
+          <th>{{ _("What You Paid") }}</th>
+          <th>{{ _("Jan Aushadhi Expected") }}</th>
+          <th>{{ _("Overpaid By") }}</th>
+          <th>{{ _("Confidence") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -80,32 +81,32 @@
             <td>
               {{ item.get('pack_size_display', item.get('unit', 'N/A')) }}
               {% if item.get('price_normalized') %}
-              <span class="cell-sub">Normalized from Jan Aushadhi {{ item.get('csv_pack_size') }}'s</span>
+              <span class="cell-sub">{{ _("Normalized from Jan Aushadhi %(size)s's", size=item.get('csv_pack_size')) }}</span>
               {% endif %}
             </td>
-            <td class="cell-left">{{ item.get('billed_display', 'Not detected') }}</td>
-            <td class="cell-left">{{ item.get('expected_display', 'N/A') }}</td>
+            <td class="cell-left">{{ item.get('billed_display', _('Not detected')) }}</td>
+            <td class="cell-left">{{ item.get('expected_display', _('N/A')) }}</td>
             <td>
               {% if is_low %}
-                <span class="cell-sub">Estimated only</span>
+                <span class="cell-sub">{{ _("Estimated only") }}</span>
               {% elif item.difference is not none %}
-                Rs {{ item.difference }}
-                {% if item.overpricing_percentage %}<span class="cell-sub">{{ item.overpricing_percentage }}% above reference</span>{% endif %}
+                {{ _("Rs %(amount)s", amount=item.difference) }}
+                {% if item.overpricing_percentage %}<span class="cell-sub">{{ _("%(pct)s%% above reference", pct=item.overpricing_percentage) }}</span>{% endif %}
                 {% if item.get('jan_aushadhi_note') %}
                 <span class="cell-sub ja-note">{{ item.jan_aushadhi_note }}</span>
                 {% endif %}
               {% else %}
-                N/A
+                {{ _("N/A") }}
               {% endif %}
             </td>
             <td>
               {% if item.get('confidence_tier') %}
-                {{ item.confidence_tier|capitalize }}
+                {{ translate_confidence(item.confidence_tier) }}
                 {% if item.get('combined_confidence') is not none %}
                 <span class="cell-sub">{{ (item.combined_confidence * 100)|round(0)|int }}%</span>
                 {% endif %}
               {% else %}
-                N/A
+                {{ _("N/A") }}
               {% endif %}
               {% if item.get('low_confidence_disclaimer') %}
               <span class="cell-sub">{{ item.low_confidence_disclaimer }}</span>
@@ -114,26 +115,26 @@
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="8" class="no-data">No matching medicines were detected in the bill text.</td></tr>
+          <tr><td colspan="8" class="no-data">{{ _("No matching medicines were detected in the bill text.") }}</td></tr>
         {% endif %}
       </tbody>
     </table>
     </div><!-- /.table-scroll -->
 
     <div class="illness-section">
-      <h3>Structured Report</h3>
-      <p>Parser used: {{ report.get('parse_source', 'rule_based')|replace('_', ' ') }}</p>
-      <p>Total items detected: {{ report.get('summary', {}).get('total_detected', 0) }}</p>
-      <p>High-confidence overpriced items: {{ report.get('summary', {}).get('overpriced_count', 0) }}</p>
-      <p>Estimated savings: Rs {{ report.get('summary', {}).get('estimated_savings', 0) }}</p>
+      <h3>{{ _("Structured Report") }}</h3>
+      <p>{{ _("Parser used: %(source)s", source=report.get('parse_source', 'rule_based')|replace('_', ' ')) }}</p>
+      <p>{{ _("Total items detected: %(count)s", count=report.get('summary', {}).get('total_detected', 0)) }}</p>
+      <p>{{ _("High-confidence overpriced items: %(count)s", count=report.get('summary', {}).get('overpriced_count', 0)) }}</p>
+      <p>{{ _("Estimated savings: Rs %(amount)s", amount=report.get('summary', {}).get('estimated_savings', 0)) }}</p>
       {% if report.get('low_confidence_items') %}
-      <p>Low-confidence items: {{ report.get('low_confidence_items') }}</p>
+      <p>{{ _("Low-confidence items: %(count)s", count=report.get('low_confidence_items')) }}</p>
       {% endif %}
       {% if report.get('duplicates') %}
-      <p>Duplicate detections: {{ report.get('duplicates')|join(', ') }}</p>
+      <p>{{ _("Duplicate detections: %(names)s", names=report.get('duplicates')|join(', ')) }}</p>
       {% endif %}
       {% if report.get('invalid_pricing') %}
-      <p>Invalid or missing prices: {{ report.get('invalid_pricing')|join(', ') }}</p>
+      <p>{{ _("Invalid or missing prices: %(names)s", names=report.get('invalid_pricing')|join(', ')) }}</p>
       {% endif %}
       {% if report.get('missing_medicine_detection') %}
       <p>{{ report.get('missing_medicine_detection') }}</p>
@@ -142,21 +143,21 @@
 
     {% if transcript %}
     <div class="illness-section">
-      <h3>OCR Transcript</h3>
+      <h3>{{ _("OCR Transcript") }}</h3>
       <pre style="white-space: pre-wrap; margin: 0; font-family: inherit;">{{ transcript }}</pre>
     </div>
     {% endif %}
 
     {% if illness %}
     <div class="illness-section">
-      <h3>Detected Treatment Context</h3>
+      <h3>{{ _("Detected Treatment Context") }}</h3>
       <p>{{ illness }}</p>
     </div>
     {% endif %}
 
     {% if scheme_info %}
     <div class="scheme-section">
-      <h3>Ayushman Bharat Scheme Note</h3>
+      <h3>{{ _("Ayushman Bharat Scheme Note") }}</h3>
       <p>{{ covered }}</p>
     </div>
     {% endif %}
@@ -165,22 +166,22 @@
     {% set other_items = report.get('non_medicine_items', []) %}
     {% if other_items %}
     <div class="illness-section">
-      <h3>Other Bill Entries Detected</h3>
+      <h3>{{ _("Other Bill Entries Detected") }}</h3>
       <div class="table-scroll">
       <table id="otherTable">
         <thead>
           <tr>
-            <th>Description</th>
-            <th>Category</th>
-            <th>Quantity</th>
-            <th>Amount (Rs)</th>
+            <th>{{ _("Description") }}</th>
+            <th>{{ _("Category") }}</th>
+            <th>{{ _("Quantity") }}</th>
+            <th>{{ _("Amount (Rs)") }}</th>
           </tr>
         </thead>
         <tbody>
           {% for item in other_items %}
           <tr>
             <td class="cell-left">{{ item.name }}</td>
-            <td>{{ item.category_type | replace('_', ' ') | title }}</td>
+            <td>{{ translate_category(item.category_type) }}</td>
             <td>{{ item.quantity }}</td>
             <td>{{ item.line_total }}</td>
           </tr>
@@ -195,11 +196,11 @@
     {% set breakdown = report.get('category_breakdown', {}) %}
     {% if breakdown %}
     <div class="illness-section">
-      <h3>Bill Category Breakdown</h3>
+      <h3>{{ _("Bill Category Breakdown") }}</h3>
       <div class="category-grid">
         {% for cat, count in breakdown.items() %}
         <div class="category-chip">
-          <span class="chip-label">{{ cat | replace('_', ' ') | title }}</span>
+          <span class="chip-label">{{ translate_category(cat) }}</span>
           <span class="chip-count">{{ count }}</span>
         </div>
         {% endfor %}
@@ -210,18 +211,17 @@
     <!-- Phase 7: scheme recommendations -->
     {% if schemes %}
     <div class="scheme-section">
-      <h3>Government Scheme Recommendations</h3>
+      <h3>{{ _("Government Scheme Recommendations") }}</h3>
       <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
-        Based on the detected treatment, you may be eligible for the following schemes.
-        Always verify eligibility at the official website.
+        {{ _("Based on the detected treatment, you may be eligible for the following schemes. Always verify eligibility at the official website.") }}
       </p>
       {% for s in schemes %}
       <div class="scheme-card">
         <div class="scheme-name">{{ s.name }}</div>
         <p class="scheme-desc">{{ s.description }}</p>
-        <p class="scheme-elig"><strong>Eligibility:</strong> {{ s.eligibility }}</p>
+        <p class="scheme-elig"><strong>{{ _("Eligibility:") }}</strong> {{ s.eligibility }}</p>
         <a href="{{ s.website }}" target="_blank" rel="noopener" class="scheme-link">
-          Visit official site →
+          {{ _("Visit official site →") }}
         </a>
       </div>
       {% endfor %}
@@ -229,7 +229,7 @@
     {% endif %}
 
     <div style="text-align:center;margin:2rem 0;">
-      <a href="/dashboard" class="btn-back">&#8592; Back to Dashboard</a>
+      <a href="/dashboard" class="btn-back">&#8592; {{ _("Back to Dashboard") }}</a>
     </div>
   </body>
 </html>

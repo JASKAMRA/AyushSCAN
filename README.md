@@ -3,7 +3,7 @@
 <p align="center"><i>AI-powered medical bill analyzer and health assistant for Bharat</i></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Flask-WebApp-orange?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/Gemini-AI-green?style=for-the-badge"/>
   <img src="https://img.shields.io/badge/OCR-Tesseract%20%2B%20EasyOCR-purple?style=for-the-badge"/>
@@ -12,20 +12,9 @@
 
 ---
 
-## Demo Video
-
-<p align="center">
-  <a href="https://youtu.be/pqgdbEKCr8Y" target="_blank">
-    <img src="https://img.youtube.com/vi/pqgdbEKCr8Y/0.jpg" alt="AyushScan Demo" width="60%" />
-  </a><br>
-  <i>Click the image to view the demo</i>
-</p>
-
----
-
 ## What is AyushScan?
 
-**AyushScan** is a production-grade healthcare web application that lets patients upload medical bills (images or PDFs), automatically detect overpriced medicines against the Jan Aushadhi reference dataset, and receive AI-guided health assistance in English, Hindi, or Hinglish. It is designed specifically for India's healthcare landscape — with personalized government scheme recommendations based on the user's state, caste category, and income level.
+**AyushScan** is a healthcare web application that lets patients upload medical bills (images or PDFs), automatically detect overpriced medicines against the Jan Aushadhi reference dataset, and get help from an AI assistant that replies in English, Hindi, or Hinglish. The app's own interface is localized into English and Hindi. It is designed specifically for India's healthcare landscape — with personalized government scheme recommendations based on the user's state, caste category, and income level.
 
 ---
 
@@ -33,7 +22,7 @@
 
 ### Bill Scanning & OCR
 - Upload medical bills as images (JPG, PNG, TIFF, WebP, BMP) or PDFs
-- **Dual OCR engine**: Tesseract (multi-PSM/OEM configurations) + EasyOCR running in parallel; results are merged by confidence
+- **Multi-pass OCR**: Tesseract runs several PSM/OEM configurations per image, plus EasyOCR as an additional pass if installed (it's an optional dependency); every candidate is scored and the best-scoring one is kept
 - **Fast path for printed documents**: light preprocessing (autocontrast, contrast ×1.5, sharpen ×1.2) with a quality score short-circuit — skips the heavy handwriting pipeline when the bill is clearly printed
 - **Handwritten OCR pipeline**: deskew, denoise, multi-scale processing, binarization, combined confidence scoring
 - **PDF support**: text-layer extraction (pypdfium2) with image OCR fallback for scanned PDFs
@@ -45,7 +34,7 @@
 - Calculates overbilling per item and total estimated savings
 - Shows Jan Aushadhi generic equivalent note per overpriced item
 - **Confidence tiering**: High / Medium / Low — items with insufficient evidence are clearly labelled, not silently wrong
-- **Gemini fallback cascade**: if quota is hit, retries across `gemini-1.5-flash → gemini-1.5-flash-8b → gemini-2.0-flash-lite → gemini-2.0-flash` with exponential backoff
+- **Gemini fallback cascade**: on quota or timeout errors, retries across the configured `GEMINI_MODEL` (default `gemini-2.0-flash`) then `gemini-2.5-flash → gemini-2.0-flash-lite → gemini-flash-latest`, with exponential backoff on quota errors
 
 ### Jan Aushadhi Savings Engine
 - Matches brand-name medicines from your bill to generic equivalents from the Jan Aushadhi dataset
@@ -59,15 +48,21 @@
 - Includes PM-JAY / Ayushman Bharat with working eligibility check link, state-specific health schemes, and caste/income-based welfare schemes
 - Gemini powers the primary suggestion; a rule-based engine handles fallback
 
-### Multilingual AI Chatbot — Lia
-- Auto-detects English, Hindi, and Hinglish from the user's message
+### Multilingual AI Chatbot — Ayu
+- Auto-detects English, Hindi, and Hinglish from the user's message (independent of the site's own UI language — see Localization below)
 - Responds natively in the detected language — no post-translation
 - Hindi responses use `temperature=0.1` for accuracy and consistency; language instructions are injected at top and bottom of every prompt
-- Remembers recent scan history and previous chat context
+- Prompted to be warm and concise by default, use bullet points for multi-item answers, and say so explicitly when it's uncertain rather than guessing
+- Remembers recent scan history and the last few chat exchanges for context
 - **Voice assistant**: microphone input (Web Speech API STT) and spoken responses (TTS) in English and Hindi
   - Language selector: Auto / English / Hindi
   - Multi-strategy Hindi voice detection: exact `hi-IN` → `hi*` prefix → name hints (Lekha, Kalpana, Hemant, etc.)
   - Shows which voice was selected or instructions to install a Hindi voice on Windows
+
+### Localization
+- The app's own interface (navigation, forms, buttons, flash messages, error pages, CSV/PDF export labels) is translated into English and Hindi via Flask-Babel
+- Language is chosen at signup/login or via the language switcher, stored per-account, and persisted across sessions
+- This is separate from the chatbot's per-message language auto-detection above — switching the site language does not force the chatbot's reply language, and vice versa
 
 ### Hospital Search
 - Live search for nearby hospitals via Overpass API (OpenStreetMap)
@@ -81,10 +76,11 @@
 ### Authentication & Security
 - Signup/login with Werkzeug password hashing (pbkdf2/scrypt)
 - Forgot-password OTP flow: 15-minute expiry, Gmail SMTP delivery
-- **CSRF protection** on all state-changing routes
-- **Rate limiting**: login (10/min), forgot password (5/5 min), bill scan (per-user), contact form
-- **File upload validation**: extension allowlist + MIME sniffing; 16 MB limit
-- Secure session cookies: `HttpOnly`, `SameSite=Lax`
+- **CSRF protection** (Flask-WTF) on every state-changing route — forms and JS `fetch` calls alike
+- **Rate limiting**: login (10 attempts/min per email), OTP requests (5/5 min per email), bill scans (15/min per user) — tracked in-process, so this holds as long as the app runs as a single process
+- **File upload validation**: extension allowlist (JPG/PNG/GIF/BMP/TIFF/WebP/PDF), 16 MB size limit, sanitized filenames; files that fail to decode as a real image/PDF are rejected
+- Session cookies: `HttpOnly`, `SameSite=Lax`
+- Security response headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
 - All user inputs sanitized and length-capped before storage or logging
 
 ### Reporting
@@ -101,9 +97,16 @@ AyushSCAN/
 ├── products.csv            # Jan Aushadhi reference dataset (generic medicine prices)
 ├── requirements.txt
 ├── .env                    # Environment variables (never commit this)
+├── .env.example            # Documents every env var the app reads, with placeholders
+├── Procfile                # Render/Heroku-style start command (gunicorn)
+├── .python-version         # Pinned Python version for deployment
+├── babel.cfg               # Flask-Babel string-extraction config
+├── translations/           # Compiled English/Hindi UI translation catalogs
+│   ├── en/LC_MESSAGES/
+│   └── hi/LC_MESSAGES/
 ├── static/
 │   ├── images/
-│   ├── scripts/            # dashboard.js, login.js, signup.js
+│   ├── scripts/            # dashboard.js, login.js, signup.js, form-utils.js, forgot-password.js
 │   └── styles/             # dashboard.css, result.css, per-page CSS
 └── templates/              # Jinja2 HTML templates
     ├── dashboard.html
@@ -121,18 +124,23 @@ AyushSCAN/
 git clone https://github.com/JASKAMRA/AyushSCAN
 cd AyushSCAN
 
-# Create and activate a virtual environment
+# Create and activate a virtual environment (Python 3.13 is what this project is built/tested against)
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # Install Python dependencies
 pip install -r requirements.txt
 
+# Copy the env template and fill in real values (see Environment Variables below)
+cp .env.example .env
+
 # Start the Flask development server
 python app.py
 ```
 
 Open your browser at `http://127.0.0.1:5000`
+
+The English and Hindi UI translations are already compiled into `translations/`. If you edit any translatable string in `app.py` or `templates/`, re-extract and recompile with `pybabel extract -F babel.cfg -o messages.pot .`, `pybabel update -i messages.pot -d translations`, then `pybabel compile -d translations`.
 
 ### Tesseract OCR (required)
 
@@ -152,52 +160,58 @@ Create a `.env` file at the project root (same folder as `app.py`).
 
 ```env
 # Gemini AI — bill structuring, chatbot, scheme recommendations
-# Get your key from https://aistudio.google.com/app/apikey
+# Get your key from https://aistudio.google.com/apikey
 GOOGLE_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
+
+# Flask session-signing secret (generate with: python -c "import secrets; print(secrets.token_hex(32))")
+SECRET_KEY=your_random_secret_key
 
 # Email — OTP delivery and contact form
 EMAIL_ADDRESS=your_gmail@gmail.com
 EMAIL_PASSWORD=your_gmail_app_password   # Use an App Password, not your account password
 
 # Optional overrides (defaults shown)
-SECRET_KEY=change-this-in-production
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 TESSERACT_LANG=eng
-GEMINI_MODEL=gemini-1.5-flash
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 PDF_OCR_MAX_PAGES=12
 PDF_OCR_SCALE=3.5
 ```
 
+A filled-in template with comments for every variable is in `.env.example`.
+
 **Getting a Gemini API key**
-Go to [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey), sign in with a Google account, and click **Create API key**. The key will start with `AIza`. Paste it as the value of `GOOGLE_API_KEY`.
+Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with a Google account, and click **Create API key**. Depending on when the key was issued it will start with either `AIza` (older "Standard" keys) or `AQ.` (current "Auth" keys) — the app accepts both. Paste it as the value of `GOOGLE_API_KEY`.
 
 **Getting a Gmail App Password**
 Enable 2-Step Verification on your Google account, then go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and generate an app password for "Mail". Use that 16-character password as `EMAIL_PASSWORD`.
 
-> **Note:** The app works without a Gemini API key — OCR, price lookup, and rule-based analysis still function. Gemini-powered features (structured extraction, chatbot, scheme suggestions) will use the rule-based fallback.
+> **Note:** The app works without a Gemini API key — OCR, price lookup, and rule-based analysis still function. Gemini-powered features (structured extraction, chatbot, scheme suggestions) fall back to a rule-based engine.
 
-> **Security:** Your `.env` file is excluded from version control by `.gitignore`. Never commit it to GitHub.
+> **Security:** `.env` is excluded from version control by `.gitignore` — never commit it. If `SECRET_KEY` is left unset, the app logs a warning and falls back to an insecure development default; always set a real one before deploying.
 
 ---
 
 ## API Status
 
-Visit `/api/status` to check the health of all integrations:
+Visit `/api/status` to check the health of the Gemini and email integrations:
 
 ```json
 {
-  "google_api_key_present": true,
+  "google_api_key_set": true,
   "google_api_key_format_ok": true,
-  "gemini_model": "gemini-1.5-flash",
-  "jan_aushadhi_products_loaded": 1547,
-  "tesseract_available": true,
-  "easyocr_available": true
+  "google_api_key_hint": "AQ.Ab8…",
+  "gemini_model": "gemini-2.0-flash",
+  "gemini_ping": "ok",
+  "email_configured": true,
+  "tesseract_path": "default",
+  "products_loaded": 2439
 }
 ```
 
-If `google_api_key_format_ok` is `false`, check that `GOOGLE_API_KEY` is set correctly in your `.env`.
+If `google_api_key_format_ok` is `false`, check that `GOOGLE_API_KEY` is set and starts with `AIza` or `AQ.`. If `gemini_ping` isn't `"ok"`, it contains the exact error from the last live call to Gemini.
 
 ---
 

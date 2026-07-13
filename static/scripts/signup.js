@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const confirmToggleIcon = document.getElementById("confirmToggleIcon");
   const firstNameInput = document.getElementById("firstName");
   const lastNameInput = document.getElementById("lastName");
+  const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
   function togglePasswordVisibility(inputElement, iconElement) {
     const type = inputElement.type === "password" ? "text" : "password";
@@ -32,32 +33,9 @@ document.addEventListener("DOMContentLoaded", function () {
     return username.length >= 3;
   }
 
-  function validateEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
   function validatePassword(password) {
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,}$/;
     return passwordRegex.test(password);
-  }
-
-  function showError(input, message) {
-    input.style.borderColor = "var(--error)";
-    input.style.boxShadow = "0 0 0 3px rgba(239, 68, 68, 0.1)";
-    const existingError = input.parentNode.querySelector(".error-message");
-    if (existingError) existingError.remove();
-    const errorDiv = document.createElement("div");
-    errorDiv.className = "error-message";
-    errorDiv.textContent = message;
-    input.parentNode.appendChild(errorDiv);
-  }
-
-  function clearError(input) {
-    input.style.borderColor = "var(--border)";
-    input.style.boxShadow = "none";
-    const errorMessage = input.parentNode.querySelector(".error-message");
-    if (errorMessage) errorMessage.remove();
   }
 
   signupForm.addEventListener("submit", function (e) {
@@ -68,41 +46,42 @@ document.addEventListener("DOMContentLoaded", function () {
     clearError(confirmPasswordInput);
     clearError(firstNameInput);
     clearError(lastNameInput);
+    clearFormAlert();
 
     let isValid = true;
 
     if (!firstNameInput.value.trim()) {
-      showError(firstNameInput, "First name is required");
+      showError(firstNameInput, I18N.firstNameRequired);
       isValid = false;
     }
     if (!lastNameInput.value.trim()) {
-      showError(lastNameInput, "Last name is required");
+      showError(lastNameInput, I18N.lastNameRequired);
       isValid = false;
     }
 
     if (!validateUsername(usernameInput.value)) {
-      showError(usernameInput, "Username must be at least 3 characters");
+      showError(usernameInput, I18N.usernameTooShort);
       isValid = false;
     }
 
     if (!validateEmail(emailInput.value)) {
-      showError(emailInput, "Please enter a valid email address");
+      showError(emailInput, I18N.invalidEmail);
       isValid = false;
     }
 
     if (!validatePassword(passwordInput.value)) {
       showError(
         passwordInput,
-        "Password needs 6+ chars, 1 uppercase, 1 lowercase, 1 number",
+        I18N.weakPassword,
       );
       isValid = false;
     }
 
     if (confirmPasswordInput.value !== passwordInput.value) {
-      showError(confirmPasswordInput, "Passwords do not match");
+      showError(confirmPasswordInput, I18N.passwordsDontMatch);
       isValid = false;
     } else if (!confirmPasswordInput.value) {
-      showError(confirmPasswordInput, "Please confirm your password");
+      showError(confirmPasswordInput, I18N.confirmPasswordRequired);
       isValid = false;
     }
 
@@ -110,7 +89,7 @@ document.addEventListener("DOMContentLoaded", function () {
       submitButton.classList.add("loading");
       fetch("/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN },
         body: JSON.stringify({
           firstName: firstNameInput.value.trim(),
           lastName: lastNameInput.value.trim(),
@@ -124,13 +103,13 @@ document.addEventListener("DOMContentLoaded", function () {
           if (data.success) {
             window.location.href = data.redirect_url;
           } else {
-            alert(data.message || "Signup failed. Try again.");
+            showFormAlert(data.message || I18N.signupFailed, "error");
             submitButton.classList.remove("loading");
           }
         })
         .catch((error) => {
           console.error("Signup error:", error);
-          alert("Something went wrong. Try again.");
+          showFormAlert(I18N.somethingWentWrong, "error");
           submitButton.classList.remove("loading");
         });
     }

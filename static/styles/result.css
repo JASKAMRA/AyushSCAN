@@ -98,8 +98,16 @@ th {
 .no-data {
   text-align: center;
   font-weight: 500;
-  padding: 2rem;
+  padding: 2.5rem 1rem;
   color: gray;
+}
+
+.no-data::before {
+  content: "\1F50D";
+  display: block;
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
 }
 
 .btn-back {
@@ -121,6 +129,11 @@ th {
 
 .btn-back:hover {
   background-color: #249e3a;
+}
+
+.btn-back:focus-visible {
+  outline: 2px solid #166534;
+  outline-offset: 2px;
 }
 
 /* Phase 6 — export bar */
@@ -146,6 +159,11 @@ th {
 
 .btn-export:hover {
   background: #1e40af;
+}
+
+.btn-export:focus-visible {
+  outline: 2px solid #1e3a8a;
+  outline-offset: 2px;
 }
 
 /* Phase 5 — category chips */
@@ -221,7 +239,8 @@ th {
   text-decoration: none;
 }
 
-.scheme-link:hover {
+.scheme-link:hover,
+.scheme-link:focus-visible {
   text-decoration: underline;
 }
 
@@ -285,7 +304,8 @@ th {
   margin-left: 0.5rem;
 }
 
-.ja-banner a:hover {
+.ja-banner a:hover,
+.ja-banner a:focus-visible {
   text-decoration: underline;
 }
 

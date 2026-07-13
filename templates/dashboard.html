@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AyushScan - {{ tr.dashboard }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <title>{{ _("AyushScan - %(page)s", page=_("Dashboard")) }}</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -26,42 +27,44 @@
             <img
               src="/static/images/LOGO.png"
               alt="AyushScan"
+              width="41"
+              height="34"
               style="height: 34px; background: #f1f1f1"
             />
-            AyushScan
+            {{ _("AyushScan") }}
           </div>
-          <div class="sidebar-subtitle">Transparent healthcare billing</div>
+          <div class="sidebar-subtitle">{{ _("Transparent healthcare billing") }}</div>
         </div>
         <nav>
           <ul class="sidebar-nav">
             <li class="nav-item">
               <a class="nav-link active" data-section="dashboard"
                 ><span class="nav-icon">&#128202;</span
-                ><span class="nav-text">{{ tr.dashboard }}</span></a
+                ><span class="nav-text">{{ _("Dashboard") }}</span></a
               >
             </li>
             <li class="nav-item">
               <a class="nav-link" data-section="scanner"
                 ><span class="nav-icon">&#128247;</span
-                ><span class="nav-text">{{ tr.scanner }}</span></a
+                ><span class="nav-text">{{ _("Scanner") }}</span></a
               >
             </li>
             <li class="nav-item">
               <a class="nav-link" data-section="hospitals"
                 ><span class="nav-icon">&#127973;</span
-                ><span class="nav-text">{{ tr.hospitals }}</span></a
+                ><span class="nav-text">{{ _("Hospitals Nearby") }}</span></a
               >
             </li>
             <li class="nav-item">
               <a class="nav-link" data-section="history"
                 ><span class="nav-icon">&#128203;</span
-                ><span class="nav-text">{{ tr.history }}</span></a
+                ><span class="nav-text">{{ _("Scan History") }}</span></a
               >
             </li>
             <li class="nav-item">
               <a class="nav-link" data-section="profile"
                 ><span class="nav-icon">&#128100;</span
-                ><span class="nav-text">{{ tr.profile }}</span></a
+                ><span class="nav-text">{{ _("Profile") }}</span></a
               >
             </li>
           </ul>
@@ -74,54 +77,21 @@
         <header class="header">
           <div class="header-left">
             <button class="menu-toggle" id="menuToggle" type="button">
-              Menu
+              {{ _("Menu") }}
             </button>
-            <h1 class="page-title" id="pageTitle">{{ tr.dashboard }}</h1>
+            <h1 class="page-title" id="pageTitle">{{ _("Dashboard") }}</h1>
           </div>
           <div class="header-right">
             <form action="/set_language" method="POST">
-              <!-- prettier-ignore -->
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <select
                 name="language"
                 onchange="this.form.submit()"
                 class="form-input"
                 aria-label="Language"
               >
-                <option
-                  value="english"
-                  {%
-                  if
-                  lang=="english"
-                  %}selected{%
-                  endif
-                  %}
-                >
-                  English
-                </option>
-
-                <option
-                  value="hindi"
-                  {%
-                  if
-                  lang=="hindi"
-                  %}selected{%
-                  endif
-                  %}
-                >
-                  हिन्दी
-                </option>
-
-                <option
-                  value="hinglish"
-                  {%
-                  if
-                  lang=="hinglish"
-                  %}selected{%
-                  endif
-                  %}
-                >
-                  Hinglish
-                </option>
+                <option value="en" {% if lang == "en" %}selected{% endif %}>English</option>
+                <option value="hi" {% if lang == "hi" %}selected{% endif %}>हिन्दी</option>
               </select>
             </form>
             <div class="user-profile" onclick="showSection('profile')">
@@ -140,14 +110,13 @@
             <div class="dashboard-card" onclick="showSection('scanner')">
               <div class="card-header">
                 <div class="card-icon">🗒️</div>
-                <div class="card-title">{{ tr.total_scans }}</div>
+                <div class="card-title">{{ _("Total Scans") }}</div>
               </div>
               <div class="card-description">
-                Upload medical bills and compare detected charges with reference
-                prices.
+                {{ _("Upload medical bills and compare detected charges with reference prices.") }}
               </div>
               <div class="card-stats">
-                <span class="stat-label">{{ tr.scanner }}</span
+                <span class="stat-label">{{ _("Scanner") }}</span
                 ><span class="stat-value">{{ metrics.total_scans }}</span>
               </div>
             </div>
@@ -158,42 +127,40 @@
             >
               <div class="card-header">
                 <div class="card-icon">🤖</div>
-                <div class="card-title">{{ tr.ai_assistant }}</div>
+                <div class="card-title">{{ _("AI Assistant") }}</div>
               </div>
               <div class="card-description">
-                Ask billing, medicine price, hospital, and Ayushman Bharat
-                questions.
+                {{ _("Ask billing, medicine price, hospital, and Ayushman Bharat questions.") }}
               </div>
               <div class="card-stats">
-                <span class="stat-label">{{ tr.chat_count }}</span
+                <span class="stat-label">{{ _("Chat Messages") }}</span
                 ><span class="stat-value">{{ metrics.chat_count }}</span>
               </div>
             </a>
             <div class="dashboard-card" onclick="showSection('hospitals')">
               <div class="card-header">
                 <div class="card-icon">📍</div>
-                <div class="card-title">{{ tr.hospitals }}</div>
+                <div class="card-title">{{ _("Hospitals Nearby") }}</div>
               </div>
               <div class="card-description">
-                Use browser location to find nearby hospitals and filter
-                possible Ayushman Bharat options.
+                {{ _("Use browser location to find nearby hospitals and filter possible Ayushman Bharat options.") }}
               </div>
               <div class="card-stats">
-                <span class="stat-label">Location based</span
-                ><span class="stat-value">Live</span>
+                <span class="stat-label">{{ _("Location based") }}</span
+                ><span class="stat-value">{{ _("Live") }}</span>
               </div>
             </div>
             <div class="dashboard-card" onclick="showSection('history')">
               <div class="card-header">
                 <div class="card-icon">💰</div>
-                <div class="card-title">{{ tr.savings }}</div>
+                <div class="card-title">{{ _("Estimated Savings") }}</div>
               </div>
               <div class="card-description">
-                Estimated savings from detected overpricing across scan history.
+                {{ _("Estimated savings from detected overpricing across scan history.") }}
               </div>
               <div class="card-stats">
-                <span class="stat-label">Reference comparison</span
-                ><span class="stat-value">Rs {{ metrics.savings }}</span>
+                <span class="stat-label">{{ _("Reference comparison") }}</span
+                ><span class="stat-value">{{ _("Rs %(amount)s", amount=metrics.savings) }}</span>
               </div>
             </div>
           </div>
@@ -208,7 +175,7 @@
                 color: var(--text);
               "
             >
-              Medical Bill Scanner
+              {{ _("Medical Bill Scanner") }}
             </h2>
             <form
               id="scannerForm"
@@ -218,9 +185,9 @@
             >
               <label for="fileInput" id="dropArea" class="upload-area">
                 <div id="uploadIcon" class="upload-icon">FILE</div>
-                <div class="upload-text">Drop your medical bill here</div>
+                <div class="upload-text">{{ _("Drop your medical bill here") }}</div>
                 <div class="upload-subtext">
-                  or click to browse JPG or PNG files
+                  {{ _("or click to browse JPG or PNG files") }}
                 </div>
                 <input
                   type="file"
@@ -234,7 +201,7 @@
                 id="filePreview"
                 style="display: none; margin-top: 1rem; text-align: center"
               >
-                <p style="color: var(--text-light)">Selected File:</p>
+                <p style="color: var(--text-light)">{{ _("Selected File:") }}</p>
                 <p id="fileName" style="font-weight: 600"></p>
               </div>
               <div style="text-align: center; margin-top: 2rem">
@@ -251,15 +218,15 @@
                     cursor: pointer;
                   "
                 >
-                  Start Scan
+                  {{ _("Start Scan") }}
                 </button>
               </div>
               <div
                 id="loadingSpinner"
                 style="display: none; text-align: center; margin-top: 2rem"
               >
-                <div class="upload-icon" style="font-size: 2rem">...</div>
-                <p>Scanning in progress...</p>
+                <div class="scan-spinner" aria-hidden="true"></div>
+                <p>{{ _("Scanning in progress...") }}</p>
               </div>
             </form>
           </div>
@@ -275,9 +242,9 @@
               box-shadow: var(--shadow);
             "
           >
-            <h2>Find Nearby Hospitals</h2>
+            <h2>{{ _("Find Nearby Hospitals") }}</h2>
             <p id="locationStatus">
-              Click search to use your browser location.
+              {{ _("Click search to use your browser location.") }}
             </p>
             <label
               style="
@@ -288,10 +255,10 @@
               "
             >
               <input type="checkbox" id="ayushmanOnly" />
-              Show Ayushman Bharat Hospitals
+              {{ _("Show Ayushman Bharat Hospitals") }}
             </label>
             <button class="send-button" type="button" id="findHospitalsBtn">
-              Search hospitals
+              {{ _("Search hospitals") }}
             </button>
             <div
               id="hospitalList"
@@ -310,7 +277,7 @@
             "
           >
             <h2 style="margin-bottom: 2rem; color: var(--text)">
-              {{ tr.history }}
+              {{ _("Scan History") }}
             </h2>
             {% if scans and scans|length > 0 %}
             <ul style="list-style: none; padding: 0">
@@ -327,25 +294,24 @@
                 <em>{{ scan.timestamp }}</em><br />
                 {% if scan.flagged and scan.flagged != '{}' %}
                 <span style="color: #b91c1c; font-weight: bold"
-                  >Overbilling detected</span
+                  >{{ _("Overbilling detected") }}</span
                 >
                 {% else %}
-                <span style="color: #047857">No overbilling detected</span>
+                <span style="color: #047857">{{ _("No overbilling detected") }}</span>
                 {% endif %}
                 <div style="margin-top: 0.5rem">
                   <a
                     href="/result/{{ scan.id }}"
                     style="font-weight: bold; color: #2d7ae0"
-                    >View detailed bill analysis</a
+                    >{{ _("View detailed bill analysis") }}</a
                   >
                 </div>
               </li>
               {% endfor %}
             </ul>
             {% else %}
-            <p>
-              Your scan history will appear here once you start scanning
-              documents.
+            <p class="empty-state">
+              {{ _("Your scan history will appear here once you start scanning documents.") }}
             </p>
             {% endif %}
           </div>
@@ -353,21 +319,21 @@
 
         <section class="content-section" id="profile">
           <div class="profile-container">
-            <h2 class="profile-heading">Manage Your Account</h2>
+            <h2 class="profile-heading">{{ _("Manage Your Account") }}</h2>
             <div class="profile-header">
               <div class="profile-avatar">{{ user.first_name[0]|upper }}</div>
               <div class="profile-info-container">
                 <div class="profile-info">
                   <h2>{{ user.first_name }} {{ user.last_name }}</h2>
                   <p>{{ user.email }}</p>
-                  <p>Status: {{ tr.active }}</p>
+                  <p>{{ _("Status: %(status)s", status=_("Active")) }}</p>
                 </div>
                 <button
                   type="button"
                   class="btn-profile-update"
                   onclick="enableEditing()"
                 >
-                  Edit Profile
+                  {{ _("Edit Profile") }}
                 </button>
               </div>
             </div>
@@ -377,8 +343,9 @@
               action="/update_profile"
               method="POST"
             >
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <div class="form-group">
-                <label class="form-label">First Name</label
+                <label class="form-label">{{ _("First Name") }}</label
                 ><input
                   type="text"
                   name="first_name"
@@ -388,7 +355,7 @@
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Last Name</label
+                <label class="form-label">{{ _("Last Name") }}</label
                 ><input
                   type="text"
                   name="last_name"
@@ -398,7 +365,7 @@
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Username</label
+                <label class="form-label">{{ _("Username") }}</label
                 ><input
                   type="text"
                   name="username"
@@ -408,7 +375,7 @@
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Email</label
+                <label class="form-label">{{ _("Email") }}</label
                 ><input
                   type="email"
                   name="email"
@@ -418,37 +385,37 @@
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">State</label>
+                <label class="form-label">{{ _("State") }}</label>
                 <select name="state" class="form-input" disabled>
-                  <option value="">-- Select State --</option>
-                  {% set states = [('maharashtra','Maharashtra'),('tamil_nadu','Tamil Nadu'),('karnataka','Karnataka'),('west_bengal','West Bengal'),('telangana','Telangana'),('andhra_pradesh','Andhra Pradesh'),('rajasthan','Rajasthan'),('gujarat','Gujarat'),('delhi','Delhi'),('kerala','Kerala')] %}
+                  <option value="">{{ _("-- Select State --") }}</option>
+                  {% set states = [('maharashtra',_('Maharashtra')),('tamil_nadu',_('Tamil Nadu')),('karnataka',_('Karnataka')),('west_bengal',_('West Bengal')),('telangana',_('Telangana')),('andhra_pradesh',_('Andhra Pradesh')),('rajasthan',_('Rajasthan')),('gujarat',_('Gujarat')),('delhi',_('Delhi')),('kerala',_('Kerala'))] %}
                   {% for val, label in states %}
                   <option value="{{ val }}" {% if user['state'] == val %}selected{% endif %}>{{ label }}</option>
                   {% endfor %}
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">Category</label>
+                <label class="form-label">{{ _("Category") }}</label>
                 <select name="caste_category" class="form-input" disabled>
-                  <option value="general" {% if (user['caste_category'] or 'general') == 'general' %}selected{% endif %}>General</option>
-                  <option value="sc" {% if user['caste_category'] == 'sc' %}selected{% endif %}>SC (Scheduled Caste)</option>
-                  <option value="st" {% if user['caste_category'] == 'st' %}selected{% endif %}>ST (Scheduled Tribe)</option>
-                  <option value="ews" {% if user['caste_category'] == 'ews' %}selected{% endif %}>EWS (Economically Weaker Section)</option>
+                  <option value="general" {% if (user['caste_category'] or 'general') == 'general' %}selected{% endif %}>{{ _("General") }}</option>
+                  <option value="sc" {% if user['caste_category'] == 'sc' %}selected{% endif %}>{{ _("SC (Scheduled Caste)") }}</option>
+                  <option value="st" {% if user['caste_category'] == 'st' %}selected{% endif %}>{{ _("ST (Scheduled Tribe)") }}</option>
+                  <option value="ews" {% if user['caste_category'] == 'ews' %}selected{% endif %}>{{ _("EWS (Economically Weaker Section)") }}</option>
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">Annual Family Income</label>
+                <label class="form-label">{{ _("Annual Family Income") }}</label>
                 <select name="annual_income" class="form-input" disabled>
-                  <option value="not_specified" {% if (user['annual_income'] or 'not_specified') == 'not_specified' %}selected{% endif %}>Prefer not to say</option>
-                  <option value="below_1lakh" {% if user['annual_income'] == 'below_1lakh' %}selected{% endif %}>Below ₹1,00,000</option>
-                  <option value="1_2lakh" {% if user['annual_income'] == '1_2lakh' %}selected{% endif %}>₹1,00,000 – ₹2,00,000</option>
-                  <option value="2_5lakh" {% if user['annual_income'] == '2_5lakh' %}selected{% endif %}>₹2,00,000 – ₹5,00,000</option>
-                  <option value="above_5lakh" {% if user['annual_income'] == 'above_5lakh' %}selected{% endif %}>Above ₹5,00,000</option>
+                  <option value="not_specified" {% if (user['annual_income'] or 'not_specified') == 'not_specified' %}selected{% endif %}>{{ _("Prefer not to say") }}</option>
+                  <option value="below_1lakh" {% if user['annual_income'] == 'below_1lakh' %}selected{% endif %}>{{ _("Below ₹1,00,000") }}</option>
+                  <option value="1_2lakh" {% if user['annual_income'] == '1_2lakh' %}selected{% endif %}>{{ _("₹1,00,000 – ₹2,00,000") }}</option>
+                  <option value="2_5lakh" {% if user['annual_income'] == '2_5lakh' %}selected{% endif %}>{{ _("₹2,00,000 – ₹5,00,000") }}</option>
+                  <option value="above_5lakh" {% if user['annual_income'] == 'above_5lakh' %}selected{% endif %}>{{ _("Above ₹5,00,000") }}</option>
                 </select>
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn-profile-save hidden">
-                  Save Changes
+                  {{ _("Save Changes") }}
                 </button>
               </div>
             </form>
@@ -457,25 +424,25 @@
                 class="btn-secondary"
                 onclick="openModal('changePasswordModal')"
               >
-                Change Password
+                {{ _("Change Password") }}
               </button>
               <button
                 class="btn-secondary"
-                onclick="openModal('forgotPasswordModal')"
+                onclick="fpOpenModal()"
               >
-                Forgot Password
+                {{ _("Forgot Password") }}
               </button>
               <button
                 class="btn-secondary danger"
                 onclick="openModal('deleteAccountModal')"
               >
-                Delete Account
+                {{ _("Delete Account") }}
               </button>
               <a
                 class="btn-secondary logout"
                 style="text-align: center; text-decoration: none"
                 href="/logout"
-                >Logout</a
+                >{{ _("Logout") }}</a
               >
             </div>
           </div>
@@ -485,109 +452,146 @@
 
     <div id="changePasswordModal" class="modal">
       <div class="modal-content">
-        <span class="close" onclick="closeModal('changePasswordModal')"
-          >&times;</span
+        <button type="button" class="close" onclick="closeModal('changePasswordModal')" aria-label="{{ _('Close') }}"
+          >&times;</button
         >
-        <h3>Change Password</h3>
+        <h3>{{ _("Change Password") }}</h3>
         <form action="/change_password" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <input
             type="password"
             name="current_password"
-            placeholder="Current Password"
+            placeholder="{{ _('Current Password') }}"
             class="form-input"
             required
           /><input
             type="password"
             name="confirm_current_password"
-            placeholder="Confirm Current Password"
+            placeholder="{{ _('Confirm Current Password') }}"
             class="form-input"
             required
           /><input
             type="password"
             name="new_password"
-            placeholder="New Password"
+            placeholder="{{ _('New Password') }}"
             class="form-input"
             required
           /><input
             type="password"
             name="confirm_new_password"
-            placeholder="Confirm New Password"
+            placeholder="{{ _('Confirm New Password') }}"
             class="form-input"
             required
-          /><button type="submit" class="btn-modal">Change</button>
+          /><button type="submit" class="btn-modal">{{ _("Change") }}</button>
         </form>
       </div>
     </div>
     <div id="forgotPasswordModal" class="modal">
       <div class="modal-content">
-        <span class="close" onclick="closeFpModal()">&times;</span>
-        <h3>Forgot Password</h3>
+        <button type="button" class="close" onclick="fpCloseModal()" aria-label="{{ _('Close') }}">&times;</button>
+        <h3>{{ _("Forgot Password") }}</h3>
 
         <!-- Step 1: email -->
         <div id="fpStep1">
           <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
-            Enter your registered email — we'll send a 6-digit OTP.
+            {{ _("Enter your registered email — we'll send a 6-digit OTP.") }}
           </p>
-          <input type="email" id="fpEmail" placeholder="Registered email address" class="form-input" />
-          <button type="button" class="btn-modal" onclick="fpSendOtp()">Send OTP</button>
+          <input type="email" id="fpEmail" placeholder="{{ _('Registered email address') }}" class="form-input" />
+          <button type="button" class="btn-modal" onclick="fpSendOtp()">{{ _("Send OTP") }}</button>
           <p id="fpMsg1" style="margin-top:.6rem;font-size:.85rem;"></p>
         </div>
 
         <!-- Step 2: OTP -->
         <div id="fpStep2" style="display:none;">
           <p style="font-size:.9rem;color:#555;margin-bottom:1rem;">
-            Enter the 6-digit OTP sent to your email. Valid for 15 minutes.
+            {{ _("Enter the 6-digit OTP sent to your email. Valid for 15 minutes.") }}
           </p>
-          <input type="text" id="fpOtp" placeholder="6-digit OTP" class="form-input"
+          <input type="text" id="fpOtp" placeholder="{{ _('6-digit OTP') }}" class="form-input"
                  maxlength="6" inputmode="numeric" />
-          <button type="button" class="btn-modal" onclick="fpVerifyOtp()">Verify OTP</button>
+          <button type="button" class="btn-modal" onclick="fpVerifyOtp()">{{ _("Verify OTP") }}</button>
           <p id="fpMsg2" style="margin-top:.6rem;font-size:.85rem;"></p>
         </div>
 
         <!-- Step 3: new password -->
         <div id="fpStep3" style="display:none;">
           <p style="font-size:.9rem;color:#047857;margin-bottom:1rem;">
-            OTP verified. Set your new password.
+            {{ _("OTP verified. Set your new password.") }}
           </p>
-          <input type="password" id="fpNewPass" placeholder="New password (min 8 chars)" class="form-input" />
-          <input type="password" id="fpConfPass" placeholder="Confirm new password" class="form-input" />
-          <button type="button" class="btn-modal" onclick="fpResetPassword()">Reset Password</button>
+          <input type="password" id="fpNewPass" placeholder="{{ _('New password (min 8 chars)') }}" class="form-input" />
+          <input type="password" id="fpConfPass" placeholder="{{ _('Confirm new password') }}" class="form-input" />
+          <button type="button" class="btn-modal" onclick="fpResetPassword()">{{ _("Reset Password") }}</button>
           <p id="fpMsg3" style="margin-top:.6rem;font-size:.85rem;"></p>
         </div>
       </div>
     </div>
     <div id="deleteAccountModal" class="modal">
       <div class="modal-content">
-        <span class="close" onclick="closeModal('deleteAccountModal')"
-          >&times;</span
+        <button type="button" class="close" onclick="closeModal('deleteAccountModal')" aria-label="{{ _('Close') }}"
+          >&times;</button
         >
-        <h3>Delete Account</h3>
+        <h3>{{ _("Delete Account") }}</h3>
         <p>
-          This action is irreversible. Confirm your password to delete your
-          account.
+          {{ _("This action is irreversible. Confirm your password to delete your account.") }}
         </p>
         <form action="/delete_account" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <input
             type="password"
             name="delete_password"
-            placeholder="Confirm Password"
+            placeholder="{{ _('Confirm Password') }}"
             class="form-input"
             required
-          /><button type="submit" class="btn-modal danger">Delete</button>
+          /><button type="submit" class="btn-modal danger">{{ _("Delete") }}</button>
         </form>
       </div>
     </div>
     <div id="feedbackModal" class="modal">
       <div class="modal-content">
-        <span class="close" onclick="closeModal('feedbackModal')">&times;</span>
-        <h3 id="feedbackTitle">Action</h3>
+        <button type="button" class="close" onclick="closeModal('feedbackModal')" aria-label="{{ _('Close') }}">&times;</button>
+        <h3 id="feedbackTitle">{{ _("Action") }}</h3>
         <p id="feedbackMessage"></p>
         <button class="btn-modal" onclick="closeModal('feedbackModal')">
-          OK
+          {{ _("OK") }}
         </button>
       </div>
     </div>
 
+    <script>
+      window.I18N = {
+        pleaseSelectFile: "{{ _('Please select a file first.') }}",
+        scanTitle: "{{ _('Scan') }}",
+        scanFailedTitle: "{{ _('Scan failed') }}",
+        unknownError: "{{ _('Unknown error') }}",
+        noHospitalsFound: "{{ _('No hospitals found for the selected filter.') }}",
+        distanceLabel: "{{ _('Distance: %%(km)s km') }}",
+        contactLabel: "{{ _('Contact: %%(contact)s') }}",
+        ayushmanPossible: "{{ _('Marked as possible Ayushman Bharat/PM-JAY hospital') }}",
+        ayushmanUnknown: "{{ _('Ayushman Bharat status not confirmed') }}",
+        openMap: "{{ _('Open map') }}",
+        geolocationUnsupported: "{{ _('Browser geolocation is not supported.') }}",
+        gettingLocation: "{{ _('Getting location...') }}",
+        locationLabel: "{{ _('Location: %%(lat)s, %%(lon)s') }}",
+        hospitalSearchFailed: "{{ _('Hospital search failed.') }}",
+        hospitalSearchUnavailable: "{{ _('Hospital search is temporarily unavailable.') }}",
+        locationDenied: "{{ _('Location access denied. Enable location permission to search nearby hospitals.') }}",
+        appName: "{{ _('AyushScan') }}",
+        enterEmail: "{{ _('Please enter your email.') }}",
+        sendingOtp: "{{ _('Sending OTP…') }}",
+        networkError: "{{ _('Network error. Please try again.') }}",
+        enterOtp: "{{ _('Please enter the OTP.') }}",
+        verifying: "{{ _('Verifying…') }}",
+        passwordMin8: "{{ _('Password must be at least 8 characters.') }}",
+        passwordsDontMatch: "{{ _('Passwords do not match.') }}",
+        resetting: "{{ _('Resetting…') }}",
+        passwordResetTitle: "{{ _('Password Reset') }}"
+      };
+      window.FP_CONFIG = {
+        openModal: () => openModal('forgotPasswordModal'),
+        closeModal: () => closeModal('forgotPasswordModal'),
+        onResetSuccess: (message) => showFeedback(I18N.passwordResetTitle, message),
+      };
+    </script>
+    <script src="/static/scripts/forgot-password.js"></script>
     <script src="/static/scripts/dashboard.js"></script>
   </body>
 </html>

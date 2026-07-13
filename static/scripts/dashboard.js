@@ -4,6 +4,9 @@ const menuToggle = document.getElementById("menuToggle");
 const pageTitle = document.getElementById("pageTitle");
 const navLinks = document.querySelectorAll(".nav-link");
 const contentSections = document.querySelectorAll(".content-section");
+const feedbackTitleEl = document.getElementById("feedbackTitle");
+const feedbackMessageEl = document.getElementById("feedbackMessage");
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 
 function showSection(sectionId) {
   contentSections.forEach((section) => section.classList.remove("active"));
@@ -38,8 +41,8 @@ function closeModal(id) {
 }
 
 function showFeedback(title, message) {
-  document.getElementById("feedbackTitle").innerText = title;
-  document.getElementById("feedbackMessage").innerText = message;
+  feedbackTitleEl.innerText = title;
+  feedbackMessageEl.innerText = message;
   openModal("feedbackModal");
 }
 
@@ -68,6 +71,13 @@ navLinks.forEach((link) => {
 window.addEventListener("click", (event) => {
   document.querySelectorAll(".modal").forEach((modal) => {
     if (event.target === modal) modal.style.display = "none";
+  });
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  document.querySelectorAll(".modal").forEach((modal) => {
+    if (modal.style.display === "block") modal.style.display = "none";
   });
 });
 
@@ -110,7 +120,7 @@ dropArea.addEventListener("drop", (event) => {
 scannerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!fileInput.files.length) {
-    showFeedback("Scan", "Please select a file first.");
+    showFeedback(I18N.scanTitle, I18N.pleaseSelectFile);
     return;
   }
 
@@ -121,25 +131,36 @@ scannerForm.addEventListener("submit", async (event) => {
   formData.append("file", fileInput.files[0]);
 
   try {
-    const response = await fetch("/scan", { method: "POST", body: formData });
+    const response = await fetch("/scan", {
+      method: "POST",
+      headers: { "X-CSRFToken": CSRF_TOKEN },
+      body: formData,
+    });
     const data = await response.json();
     if (data.success && data.scan_id) {
       window.location.href = `/result/${data.scan_id}`;
       return;
     }
-    showFeedback("Scan failed", data.message || "Unknown error");
+    showFeedback(I18N.scanFailedTitle, data.message || I18N.unknownError);
   } catch (error) {
-    showFeedback("Scan failed", error.message);
+    showFeedback(I18N.scanFailedTitle, error.message);
   } finally {
     scanBtn.disabled = false;
     loadingSpinner.style.display = "none";
   }
 });
 
+function renderHospitalSkeleton() {
+  const hospitalList = document.getElementById("hospitalList");
+  hospitalList.innerHTML = Array(3)
+    .fill('<article class="hospital-skeleton" aria-hidden="true"><div class="skel-line skel-line-title"></div><div class="skel-line"></div><div class="skel-line skel-line-short"></div></article>')
+    .join("");
+}
+
 function renderHospitals(hospitals) {
   const hospitalList = document.getElementById("hospitalList");
   if (!hospitals.length) {
-    hospitalList.innerHTML = "<p>No hospitals found for the selected filter.</p>";
+    hospitalList.innerHTML = `<p class="empty-state">${I18N.noHospitalsFound}</p>`;
     return;
   }
   hospitalList.innerHTML = hospitals
@@ -147,10 +168,10 @@ function renderHospitals(hospitals) {
       <article style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;background:${hospital.ayushman ? "#ecfdf5" : "#fff"};">
         <h3 style="margin-bottom:.5rem;">${hospital.name}</h3>
         <p>${hospital.address}</p>
-        <p>Distance: ${hospital.distance} km</p>
-        <p>Contact: ${hospital.contact}</p>
-        <p>${hospital.ayushman ? "Marked as possible Ayushman Bharat/PM-JAY hospital" : "Ayushman Bharat status not confirmed"}</p>
-        <a href="${hospital.map_url}" target="_blank" rel="noopener">Open map</a>
+        <p>${I18N.distanceLabel.replace("%(km)s", hospital.distance)}</p>
+        <p>${I18N.contactLabel.replace("%(contact)s", hospital.contact)}</p>
+        <p>${hospital.ayushman ? I18N.ayushmanPossible : I18N.ayushmanUnknown}</p>
+        <a href="${hospital.map_url}" target="_blank" rel="noopener">${I18N.openMap}</a>
       </article>
     `)
     .join("");
@@ -161,27 +182,28 @@ document.getElementById("findHospitalsBtn").addEventListener("click", () => {
   const ayushmanOnly = document.getElementById("ayushmanOnly").checked ? "1" : "0";
 
   if (!navigator.geolocation) {
-    status.textContent = "Browser geolocation is not supported.";
+    status.textContent = I18N.geolocationUnsupported;
     return;
   }
 
-  status.textContent = "Getting location...";
+  status.textContent = I18N.gettingLocation;
   navigator.geolocation.getCurrentPosition(
     async ({ coords }) => {
-      status.textContent = `Location: ${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`;
+      status.textContent = I18N.locationLabel.replace("%(lat)s", coords.latitude.toFixed(3)).replace("%(lon)s", coords.longitude.toFixed(3));
+      renderHospitalSkeleton();
       try {
         const response = await fetch(`/hospitals/nearby?lat=${coords.latitude}&lon=${coords.longitude}&ayushman=${ayushmanOnly}`);
         const data = await response.json();
         if (!data.success) {
-          status.textContent = data.message || "Hospital search failed.";
+          status.textContent = data.message || I18N.hospitalSearchFailed;
         }
         renderHospitals(data.hospitals || []);
       } catch (error) {
-        status.textContent = "Hospital search is temporarily unavailable.";
+        status.textContent = I18N.hospitalSearchUnavailable;
       }
     },
     () => {
-      status.textContent = "Location access denied. Enable location permission to search nearby hospitals.";
+      status.textContent = I18N.locationDenied;
     }
   );
 });
@@ -189,94 +211,6 @@ document.getElementById("findHospitalsBtn").addEventListener("click", () => {
 const params = new URLSearchParams(window.location.search);
 const msg = params.get("message");
 if (msg) {
-  showFeedback("AyushScan", msg);
+  showFeedback(I18N.appName, msg);
   history.replaceState({}, document.title, window.location.pathname);
-}
-
-// ── Forgot-password 3-step flow ───────────────────────────────────────────
-function closeFpModal() {
-  closeModal("forgotPasswordModal");
-  ["fpStep1","fpStep2","fpStep3"].forEach((id, i) => {
-    document.getElementById(id).style.display = i === 0 ? "block" : "none";
-  });
-  ["fpEmail","fpOtp","fpNewPass","fpConfPass"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
-  ["fpMsg1","fpMsg2","fpMsg3"].forEach(id => {
-    document.getElementById(id).textContent = "";
-  });
-}
-
-function _fpSetMsg(id, text, ok) {
-  const el = document.getElementById(id);
-  el.textContent = text;
-  el.style.color = ok ? "#047857" : "#b91c1c";
-}
-
-async function fpSendOtp() {
-  const email = document.getElementById("fpEmail").value.trim();
-  if (!email) { _fpSetMsg("fpMsg1", "Please enter your email.", false); return; }
-  _fpSetMsg("fpMsg1", "Sending OTP…", true);
-  try {
-    const res = await fetch("/forgot_password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    _fpSetMsg("fpMsg1", data.message, data.success);
-    if (data.success) {
-      document.getElementById("fpStep1").style.display = "none";
-      document.getElementById("fpStep2").style.display = "block";
-    }
-  } catch {
-    _fpSetMsg("fpMsg1", "Network error. Please try again.", false);
-  }
-}
-
-async function fpVerifyOtp() {
-  const email = document.getElementById("fpEmail").value.trim();
-  const otp   = document.getElementById("fpOtp").value.trim();
-  if (!otp) { _fpSetMsg("fpMsg2", "Please enter the OTP.", false); return; }
-  _fpSetMsg("fpMsg2", "Verifying…", true);
-  try {
-    const res = await fetch("/verify_otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp }),
-    });
-    const data = await res.json();
-    _fpSetMsg("fpMsg2", data.message, data.success);
-    if (data.success) {
-      document.getElementById("fpStep2").style.display = "none";
-      document.getElementById("fpStep3").style.display = "block";
-    }
-  } catch {
-    _fpSetMsg("fpMsg2", "Network error. Please try again.", false);
-  }
-}
-
-async function fpResetPassword() {
-  const newPass  = document.getElementById("fpNewPass").value;
-  const confPass = document.getElementById("fpConfPass").value;
-  if (newPass.length < 8) { _fpSetMsg("fpMsg3", "Password must be at least 8 characters.", false); return; }
-  if (newPass !== confPass) { _fpSetMsg("fpMsg3", "Passwords do not match.", false); return; }
-  _fpSetMsg("fpMsg3", "Resetting…", true);
-  try {
-    const res = await fetch("/reset_password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ new_password: newPass, confirm_password: confPass }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      closeFpModal();
-      showFeedback("Password Reset", data.message);
-    } else {
-      _fpSetMsg("fpMsg3", data.message, false);
-    }
-  } catch {
-    _fpSetMsg("fpMsg3", "Network error. Please try again.", false);
-  }
 }

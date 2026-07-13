@@ -344,6 +344,11 @@ body::before {
 }
 
 /* ===== ERROR MESSAGE STYLES ===== */
+.input-error {
+  border-color: var(--error) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .error-message {
   color: var(--error);
   font-size: 0.75rem;
@@ -360,6 +365,26 @@ body::before {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.form-alert {
+  padding: 0.85rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.form-alert-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.form-alert-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 /* ===== RESPONSIVE ===== */

@@ -1,11 +1,14 @@
 Flask
 flask-cors
+Flask-Babel
+Flask-WTF
+gunicorn
 Werkzeug
 pytesseract
 Pillow
 rapidfuzz
 python-dotenv
-google-generativeai
+google-genai
 pypdf
 pypdfium2
 reportlab
