@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ _("Review OCR Medicines - AyushScan") }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles/result.css" />
+  </head>
+  <body>
+    <h2>{{ _("Review Extracted Medicines") }}</h2>
+
+    <p class="results-intro">
+      {{ _("Confirm the medicine quantities read from OCR before AyushScan compares the billed amount with Jan Aushadhi reference pricing.") }}
+    </p>
+
+    <form method="POST" action="{{ url_for('review_scan', review_id=review_id) }}" class="review-panel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="hospital-type-group">
+        <span class="field-label">{{ _("Hospital Type") }}</span>
+        <div class="hospital-options">
+          {% for key, label in hospital_types.items() %}
+          <label class="hospital-option">
+            <input type="radio" name="hospital_type" value="{{ key }}" {% if key == "private" %}checked{% endif %} />
+            <span>{{ _(label) }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table id="reviewTable">
+          <thead>
+            <tr>
+              <th>{{ _("Medicine") }}</th>
+              <th>{{ _("OCR Quantity") }}</th>
+              <th>{{ _("Actual Quantity Purchased") }}</th>
+              <th>{{ _("Total Billed Amount") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set items = report.get('detected_items', []) %}
+            {% if items %}
+              {% for item in items %}
+              <tr>
+                <td class="cell-left">
+                  <strong>{{ item.name }}</strong>
+                  <span class="cell-sub">{{ item.get('category', 'N/A') }}</span>
+                </td>
+                <td>{{ item.get('quantity', 1) }}</td>
+                <td>
+                  <input
+                    class="quantity-input"
+                    type="number"
+                    name="quantity_{{ loop.index0 }}"
+                    min="0.01"
+                    step="0.01"
+                    value="{{ item.get('quantity', 1) }}"
+                    required
+                  />
+                </td>
+                <td>Rs {{ item.get('line_total', item.get('billed_price', 0)) }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="4" class="no-data">{{ _("No matching medicines were detected in the bill text.") }}</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="review-actions">
+        <a href="/dashboard" class="btn-export review-secondary">{{ _("Cancel") }}</a>
+        <button type="submit" class="btn-back">
+          {{ _("Continue to Analysis") }}
+        </button>
+      </div>
+    </form>
+  </body>
+</html>

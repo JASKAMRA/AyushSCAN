@@ -42,7 +42,7 @@
           Switching to Jan Aushadhi generic equivalents could save you approximately
           <strong>Rs {{ amount }}</strong> on this bill.
           {% endtrans %}
-          <a href="https://janaushadhi.gov.in/" target="_blank" rel="noopener">
+          <a href="https://janaushadhi.gov.in/near-by-kendra/" target="_blank" rel="noopener">
             {{ _("Find nearest Jan Aushadhi Kendra →") }}
           </a>
         </p>
@@ -92,11 +92,12 @@
               {% elif item.difference is not none %}
                 {{ _("Rs %(amount)s", amount=item.difference) }}
                 {% if item.overpricing_percentage %}<span class="cell-sub">{{ _("%(pct)s%% above reference", pct=item.overpricing_percentage) }}</span>{% endif %}
+                {% if item.get('pricing_status') %}<span class="cell-sub">{{ item.pricing_status }}</span>{% endif %}
                 {% if item.get('jan_aushadhi_note') %}
                 <span class="cell-sub ja-note">{{ item.jan_aushadhi_note }}</span>
                 {% endif %}
               {% else %}
-                {{ _("N/A") }}
+                {{ item.get('pricing_status', _("N/A")) }}
               {% endif %}
             </td>
             <td>
@@ -220,9 +221,11 @@
         <div class="scheme-name">{{ s.name }}</div>
         <p class="scheme-desc">{{ s.description }}</p>
         <p class="scheme-elig"><strong>{{ _("Eligibility:") }}</strong> {{ s.eligibility }}</p>
+        {% if s.website %}
         <a href="{{ s.website }}" target="_blank" rel="noopener" class="scheme-link">
           {{ _("Visit official site →") }}
         </a>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

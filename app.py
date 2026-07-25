@@ -159,6 +159,7 @@ babel = Babel(app, locale_selector=get_locale)
 
 # ── Simple in-process rate limiter ────────────────────────────────────────────
 _rate_limit_store: dict = {}
+_pending_scan_store: dict = {}
 
 def check_rate_limit(key: str, max_requests: int = 5, window_sec: int = 60) -> bool:
     """Return True if the request is allowed, False if rate-limited."""
@@ -1166,9 +1167,30 @@ def confidence_tier(confidence):
     return "low"
 
 
+def parse_csv_pack_info(unit_text):
+    text = (unit_text or "").strip()
+    lowered = text.lower()
+
+    count_match = re.search(r"(\d+)\s*'?\s*s\b", lowered)
+    if count_match:
+        return {"pack_size": max(int(count_match.group(1)), 1), "unit_kind": "count"}
+
+    count_unit_match = re.search(
+        r"\b(\d+)\s*(?:tablets?|tabs?|capsules?|caps?|pads?|sachets?|strips?|ear\s*buds?)\b",
+        lowered,
+    )
+    if count_unit_match:
+        return {"pack_size": max(int(count_unit_match.group(1)), 1), "unit_kind": "count"}
+
+    if re.search(r"\b(?:ml|g|gm|kg|l|vial|wfi|bottle|tube|jar|syrup|drops?|gel|cream|ointment|powder|spray|syringe|case|bag)\b", lowered):
+        return {"pack_size": 1, "unit_kind": "pack"}
+
+    match = re.search(r"(\d+)", lowered)
+    return {"pack_size": max(int(match.group(1)), 1), "unit_kind": "count"} if match else {"pack_size": 1, "unit_kind": "pack"}
+
+
 def parse_csv_pack_size(unit_text):
-    match = re.search(r"(\d+)", unit_text or "")
-    return max(int(match.group(1)), 1) if match else 1
+    return parse_csv_pack_info(unit_text)["pack_size"]
 
 
 PACK_SIZE_BILL_PATTERNS = [
@@ -1241,7 +1263,8 @@ def resolve_pack_size(bill_line, product):
 
 
 def get_reference_prices(product, pack_info=None):
-    csv_pack_size = parse_csv_pack_size(product.get("unit", ""))
+    csv_pack = parse_csv_pack_info(product.get("unit", ""))
+    csv_pack_size = csv_pack["pack_size"]
     if pack_info and pack_info.get("pack_size"):
         bill_pack_size = int(pack_info["pack_size"])
         pack_source = pack_info.get("source", "csv")
@@ -1257,6 +1280,7 @@ def get_reference_prices(product, pack_info=None):
         "pack_size": bill_pack_size,
         "pack_size_source": pack_source,
         "unit_label": product.get("unit", ""),
+        "unit_kind": csv_pack["unit_kind"],
         "csv_mrp": csv_mrp,
         "per_tablet_price": per_tablet,
         "strip_price": normalized_strip,
@@ -1703,6 +1727,11 @@ def analyze_bill(text):
             "comparison_label": display["comparison_label"],
             "line_total": line_total,
             "detected_price": billed,
+            "reference_unit_price": (
+                refs["tablet_price"]
+                if pricing["comparison_basis"] == "tablet"
+                else refs["strip_price"]
+            ),
             "expected_price": pricing["expected_price"],
             "expected_line_total": pricing["expected_line_total"],
             "billed_price": pricing["billed_price"],
@@ -1784,6 +1813,127 @@ def analyze_bill(text):
     return flagged, report
 
 
+HOSPITAL_TYPES = {
+    "government": "Government Hospital",
+    "private": "Private Hospital",
+    "pharmacy": "Pharmacy",
+}
+
+
+def _safe_positive_float(value, default=1.0):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number > 0 else default
+
+
+def apply_user_pricing_inputs(report, user_items, hospital_type):
+    hospital_key = hospital_type if hospital_type in HOSPITAL_TYPES else "private"
+    user_lookup = {}
+    for entry in user_items or []:
+        try:
+            index = int(entry.get("index"))
+        except (TypeError, ValueError):
+            continue
+        user_lookup[index] = {
+            "quantity": _safe_positive_float(entry.get("quantity"), 1.0),
+        }
+
+    flagged = {}
+    detected_items = report.get("detected_items", [])
+    low_confidence_items = 0
+
+    for index, item in enumerate(detected_items):
+        quantity = user_lookup.get(index, {}).get("quantity", _safe_positive_float(item.get("quantity"), 1.0))
+        original_quantity = _safe_positive_float(item.get("quantity"), 1.0)
+        line_total = item.get("line_total")
+        if line_total is None:
+            line_total = item.get("billed_price") or item.get("detected_price") or 0
+        line_total = round(_safe_positive_float(line_total, 0.0), 2)
+        comparison_basis = item.get("comparison_basis") or "strip"
+        reference_unit_price = item.get("reference_unit_price")
+        if reference_unit_price is None and comparison_basis == "line_total":
+            reference_unit_price = round(float(item.get("expected_line_total") or 0) / original_quantity, 4)
+        if reference_unit_price is None:
+            reference_unit_price = item.get("expected_price") or 0
+
+        if hospital_key == "government":
+            billed_price = round(line_total / quantity, 2) if quantity else line_total
+            expected_line_total = round(float(reference_unit_price or 0) * quantity, 2)
+            expected_price = round(float(reference_unit_price or 0), 2)
+            confidence_tier_value = item.get("confidence_tier", "medium")
+            interpretation = "Government hospital pricing compared directly with Jan Aushadhi reference pricing; no markup added."
+        else:
+            expected_price = round(float(reference_unit_price or 0), 2)
+            expected_line_total = round(expected_price * quantity, 2)
+            billed_price = round(line_total / quantity, 2) if quantity else line_total
+            confidence_tier_value = item.get("confidence_tier", "medium")
+            interpretation = item.get("interpretation_reasoning", "")
+
+        total_difference = round(line_total - expected_line_total, 2)
+        unit_difference = round(billed_price - expected_price, 2)
+        overpricing_percentage = (
+            round((total_difference / expected_line_total) * 100, 2)
+            if expected_line_total and total_difference > 0
+            else 0
+        )
+        status = "Possible Overpricing" if total_difference > 0 else "Price appears reasonable."
+
+        item.update({
+            "quantity": quantity,
+            "quantity_display": f"{quantity:g} units",
+            "quantity_detail": "Quantity confirmed by user after OCR extraction.",
+            "comparison_label": f"Hospital type: {HOSPITAL_TYPES[hospital_key]}",
+            "line_total": line_total,
+            "billed_price": billed_price,
+            "expected_price": expected_price,
+            "expected_line_total": expected_line_total,
+            "expected_display": f"Rs {expected_line_total:.2f} for {quantity:g} units (Rs {expected_price:.2f} per unit)",
+            "billed_display": f"Rs {line_total:.2f} total - Rs {billed_price:.2f} per unit",
+            "unit_difference": unit_difference,
+            "difference": total_difference,
+            "overpricing_percentage": overpricing_percentage,
+            "pricing_status": status,
+            "hospital_type": HOSPITAL_TYPES[hospital_key],
+            "interpretation_reasoning": interpretation,
+            "jan_aushadhi_savings": max(total_difference, 0),
+        })
+
+        if confidence_tier_value == "low":
+            low_confidence_items += 1
+        if total_difference > 0 and confidence_tier_value != "low":
+            flagged[item["name"]] = {
+                "expected": expected_price,
+                "billed": billed_price,
+                "quantity": quantity,
+                "line_total": line_total,
+                "expected_line_total": expected_line_total,
+                "extra": total_difference,
+                "overpricing_percentage": overpricing_percentage,
+                "comparison_basis": comparison_basis,
+                "ai_confidence": item.get("combined_confidence"),
+                "confidence_tier": confidence_tier_value,
+                "category": item.get("category"),
+                "note": status,
+            }
+
+    summary = report.setdefault("summary", {})
+    summary.update({
+        "total_detected": len(detected_items),
+        "overpriced_count": len(flagged),
+        "estimated_savings": round(sum(item["extra"] for item in flagged.values()), 2),
+        "low_confidence_disclaimer": (
+            "Estimated comparison based on limited bill information."
+            if low_confidence_items
+            else ""
+        ),
+    })
+    report["hospital_type"] = HOSPITAL_TYPES[hospital_key]
+    report["quantity_reviewed"] = True
+    return flagged, report
+
+
 def gemini_bill_context(text):
     try:
         prompt = (
@@ -1854,15 +2004,15 @@ def fetch_overpass_hospitals(lat, lon, radius=5000):
 
 # State-specific scheme database
 _STATE_SCHEMES = {
-    "maharashtra": {"name": "Mahatma Jyotiba Phule Jan Arogya Yojana", "description": "₹5 lakh cover for 1000+ procedures in Maharashtra empanelled hospitals.", "eligibility": "Maharashtra residents — yellow/orange/white ration card holders", "website": "https://www.jeevandayee.gov.in/"},
+    "maharashtra": {"name": "Mahatma Jyotiba Phule Jan Arogya Yojana", "description": "₹5 lakh cover for 1000+ procedures in Maharashtra empanelled hospitals.", "eligibility": "Maharashtra residents — yellow/orange/white ration card holders", "website": "https://nhm.maharashtra.gov.in/en/"},
     "tamil nadu": {"name": "CM Comprehensive Health Insurance (CMCHIS)", "description": "₹5 lakh coverage per year for government hospital treatment in TN.", "eligibility": "Tamil Nadu families with income below ₹72,000/year", "website": "https://www.cmchistn.com/"},
-    "karnataka": {"name": "Arogya Karnataka", "description": "Free treatment up to ₹5 lakh in government hospitals in Karnataka.", "eligibility": "Karnataka residents below ₹1.5 lakh annual income", "website": "https://arogyakarnataka.gov.in/"},
+    "karnataka": {"name": "Arogya Karnataka", "description": "Free treatment up to ₹5 lakh in government hospitals in Karnataka.", "eligibility": "Karnataka residents below ₹1.5 lakh annual income", "website": "https://arogya.karnataka.gov.in/"},
     "west bengal": {"name": "Swasthya Sathi", "description": "₹5 lakh health cover per family per year across all Bengal government hospitals.", "eligibility": "All West Bengal families — no income bar", "website": "https://swasthyasathi.gov.in/"},
     "telangana": {"name": "Aarogyasri (Telangana)", "description": "Covers 3,000+ medical procedures for BPL families in Telangana.", "eligibility": "BPL ration card holders in Telangana", "website": "https://www.aarogyasri.telangana.gov.in/"},
     "andhra pradesh": {"name": "YSR Aarogyasri", "description": "₹5 lakh health cover per year for eligible AP families.", "eligibility": "Families with white or yellow ration card in Andhra Pradesh", "website": "https://ysrarogyasri.ap.gov.in/"},
-    "rajasthan": {"name": "Chiranjeevi Swasthya Bima Yojana", "description": "₹25 lakh cashless cover at empanelled hospitals in Rajasthan.", "eligibility": "All Rajasthan families — free for BPL/small farmers", "website": "https://chiranjeevi.rajasthan.gov.in/"},
+    "rajasthan": {"name": "Chiranjeevi Swasthya Bima Yojana", "description": "₹25 lakh cashless cover at empanelled hospitals in Rajasthan.", "eligibility": "All Rajasthan families — free for BPL/small farmers", "website": ""},
     "gujarat": {"name": "Mukhyamantri Amrutum (MA) Yojana", "description": "₹5 lakh health cover for secondary and tertiary care in Gujarat.", "eligibility": "Gujarat families with income below ₹1.20 lakh/year", "website": "https://magmayojana.gujarat.gov.in/"},
-    "delhi": {"name": "Delhi Arogya Kosh", "description": "Free treatment at Delhi government hospitals; covers major surgeries.", "eligibility": "Delhi residents — BPL families prioritised", "website": "https://delhigovt.nic.in/"},
+    "delhi": {"name": "Delhi Arogya Kosh", "description": "Free treatment at Delhi government hospitals; covers major surgeries.", "eligibility": "Delhi residents — BPL families prioritised", "website": ""},
     "kerala": {"name": "Karunya Arogya Suraksha Padhathi", "description": "₹5 lakh per family per year for BPL families in Kerala.", "eligibility": "Kerala BPL families — below poverty line card holders", "website": "https://kasp.kerala.gov.in/"},
 }
 
@@ -1883,13 +2033,13 @@ def _rule_based_schemes(illness, user_profile=None):
 
     # ── Disease-specific central schemes ─────────────────────────────────────
     if any(k in illness_lower for k in ("cancer", "tumor", "oncolog", "malignant")):
-        schemes.append({"name": "Rashtriya Arogya Nidhi (RAN)", "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.", "eligibility": "Below Poverty Line (BPL) families — apply via district hospital", "website": "https://mohfw.gov.in/schemes-and-programmes"})
+        schemes.append({"name": "Rashtriya Arogya Nidhi (RAN)", "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.", "eligibility": "Below Poverty Line (BPL) families — apply via district hospital", "website": "https://mohfw.gov.in/"})
     if any(k in illness_lower for k in ("heart", "cardiac", "coronary", "bypass")):
         schemes.append({"name": "PM-JAY — Cardiac Care Package", "description": "Covers cardiac surgeries, angioplasty, and related procedures up to ₹5 lakh.", "eligibility": "SECC 2011 eligible or state-nominated beneficiaries — check eligibility online", "website": "https://nha.gov.in/"})
     if any(k in illness_lower for k in ("kidney", "renal", "dialysis", "transplant")):
         schemes.append({"name": "PM-JAY — Renal Care Package", "description": "Covers kidney dialysis and renal transplants; free at all PM-JAY empanelled hospitals.", "eligibility": "SECC 2011 eligible families — verify at nha.gov.in", "website": "https://nha.gov.in/"})
     if any(k in illness_lower for k in ("maternal", "delivery", "pregnancy", "antenatal", "prenatal")):
-        schemes.append({"name": "Pradhan Mantri Matru Vandana Yojana (PMMVY)", "description": "₹5,000 cash benefit for first live birth — covers ante-natal care and nutrition.", "eligibility": "Pregnant and lactating women for first live birth", "website": "https://wcd.nic.in/schemes/pradhan-mantri-matru-vandana-yojana"})
+        schemes.append({"name": "Pradhan Mantri Matru Vandana Yojana (PMMVY)", "description": "₹5,000 cash benefit for first live birth — covers ante-natal care and nutrition.", "eligibility": "Pregnant and lactating women for first live birth", "website": "https://pmmvy.wcd.gov.in/"})
 
     # ── Caste-based additions ─────────────────────────────────────────────────
     if caste in ("sc", "st", "ews") and caste in _CASTE_SCHEMES:
@@ -2229,24 +2379,23 @@ def scan():
             image = Image.open(file_path)
             text = ocr_image_to_text(image)
             scan_mode = "image"
-        flagged, report = analyze_bill(text)
-        illness, covered, gemini_analysis = gemini_bill_context(text)
-        savings = report["summary"]["estimated_savings"]
-        with get_db_connection() as conn:
-            cursor = conn.execute(
-                "INSERT INTO scans (user_id, filename, text, flagged, report, illness, covered, savings) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (session["user_id"], filename, text, json.dumps(flagged), json.dumps(report), illness, covered, savings),
-            )
-            conn.commit()
-            scan_id = cursor.lastrowid
+        _flagged, report = analyze_bill(text)
+        review_id = uuid.uuid4().hex
+        _pending_scan_store[review_id] = {
+            "user_id": session["user_id"],
+            "filename": filename,
+            "text": text,
+            "report": report,
+            "scan_mode": scan_mode,
+            "created_at": time.time(),
+        }
         return jsonify(
             success=True,
-            scan_id=scan_id,
-            message=_("Overbilling detected.") if flagged else _("No overbilling detected."),
-            flagged=flagged,
+            review_required=True,
+            review_url=url_for("review_scan", review_id=review_id),
+            message=_("OCR extraction complete. Please confirm quantities before analysis."),
             report=report,
             text=text,
-            gemini_analysis=gemini_analysis,
             scan_mode=scan_mode,
         )
     except UnidentifiedImageError:
@@ -2257,6 +2406,59 @@ def scan():
     finally:
         if file_path.exists():
             file_path.unlink()
+
+
+@app.route("/scan/review/<review_id>", methods=["GET", "POST"])
+def review_scan(review_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    pending = _pending_scan_store.get(review_id)
+    if pending and pending.get("user_id") != session["user_id"]:
+        pending = None
+    if not pending:
+        flash(_("Scan review expired. Please upload the bill again."), "danger")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "GET":
+        return render_template(
+            "review_scan.html",
+            review_id=review_id,
+            report=pending.get("report", {}),
+            hospital_types=HOSPITAL_TYPES,
+            lang=get_locale(),
+        )
+
+    report = pending.get("report", {})
+    user_items = []
+    for index, _item in enumerate(report.get("detected_items", [])):
+        user_items.append({
+            "index": index,
+            "quantity": request.form.get(f"quantity_{index}"),
+        })
+    hospital_type = request.form.get("hospital_type", "private")
+    flagged, report = apply_user_pricing_inputs(report, user_items, hospital_type)
+    illness, covered, _gemini_analysis = gemini_bill_context(pending.get("text", ""))
+    savings = report["summary"]["estimated_savings"]
+
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO scans (user_id, filename, text, flagged, report, illness, covered, savings) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                session["user_id"],
+                pending.get("filename", "reviewed_scan"),
+                pending.get("text", ""),
+                json.dumps(flagged),
+                json.dumps(report),
+                illness,
+                covered,
+                savings,
+            ),
+        )
+        conn.commit()
+        scan_id = cursor.lastrowid
+
+    _pending_scan_store.pop(review_id, None)
+    return redirect(url_for("result", scan_id=scan_id))
 
 
 @app.route("/result/<int:scan_id>")

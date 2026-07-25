@@ -137,6 +137,10 @@ scannerForm.addEventListener("submit", async (event) => {
       body: formData,
     });
     const data = await response.json();
+    if (data.success && data.review_url) {
+      window.location.href = data.review_url;
+      return;
+    }
     if (data.success && data.scan_id) {
       window.location.href = `/result/${data.scan_id}`;
       return;
