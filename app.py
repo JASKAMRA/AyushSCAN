@@ -209,6 +209,9 @@ AYUSHMAN_HINTS = (
     "ayushman", "pmjay", "pm-jay", "jan arogya", "janaushadhi", "government",
     "govt", "public", "trust", "charitable", "nha"
 )
+PMJAY_ELIGIBILITY_URL = "https://beneficiary.nha.gov.in/"
+PMJAY_HOSPITAL_SEARCH_URL = "https://hospitals.pmjay.gov.in/Search/"
+MOHFW_URL = "https://www.mohfw.gov.in/"
 
 
 def get_db_connection():
@@ -2162,7 +2165,7 @@ _STATE_SCHEMES = {
 _CASTE_SCHEMES = {
     "sc": {"name": "National SC/ST Health Scheme (MoSJE)", "description": "Additional health benefits and waiver of co-payment under PM-JAY for SC families.", "eligibility": "Scheduled Caste families — caste certificate required", "website": "https://socialjustice.gov.in/"},
     "st": {"name": "Tribal Health Mission", "description": "Dedicated health centres and PM-JAY priority enrolment for Scheduled Tribe families.", "eligibility": "Scheduled Tribe families — tribal certificate required", "website": "https://tribal.nic.in/"},
-    "ews": {"name": "EWS Health Coverage under PM-JAY", "description": "Economically Weaker Sections can access PM-JAY benefits with an EWS certificate.", "eligibility": "Annual income below ₹8 lakh — EWS certificate from tehsildar required", "website": "https://nha.gov.in/"},
+    "ews": {"name": "EWS Health Coverage under PM-JAY", "description": "Economically Weaker Sections may be eligible for relevant government health schemes depending on state and household criteria.", "eligibility": "Check eligibility on the PM-JAY beneficiary portal or with the local health office.", "website": PMJAY_ELIGIBILITY_URL},
 }
 
 
@@ -2176,11 +2179,11 @@ def _rule_based_schemes(illness, user_profile=None):
 
     # ── Disease-specific central schemes ─────────────────────────────────────
     if any(k in illness_lower for k in ("cancer", "tumor", "oncolog", "malignant")):
-        schemes.append({"name": "Rashtriya Arogya Nidhi (RAN)", "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.", "eligibility": "Below Poverty Line (BPL) families — apply via district hospital", "website": "https://mohfw.gov.in/"})
+        schemes.append({"name": "Rashtriya Arogya Nidhi (RAN)", "description": "Financial assistance for BPL patients with life-threatening diseases including cancer.", "eligibility": "Below Poverty Line (BPL) families — apply via district hospital", "website": MOHFW_URL})
     if any(k in illness_lower for k in ("heart", "cardiac", "coronary", "bypass")):
-        schemes.append({"name": "PM-JAY — Cardiac Care Package", "description": "Covers cardiac surgeries, angioplasty, and related procedures up to ₹5 lakh.", "eligibility": "SECC 2011 eligible or state-nominated beneficiaries — check eligibility online", "website": "https://nha.gov.in/"})
+        schemes.append({"name": "PM-JAY — Cardiac Care Package", "description": "PM-JAY may cover eligible cardiac procedures at empanelled hospitals.", "eligibility": "Check eligibility on the PM-JAY beneficiary portal and confirm package availability with the hospital.", "website": PMJAY_ELIGIBILITY_URL})
     if any(k in illness_lower for k in ("kidney", "renal", "dialysis", "transplant")):
-        schemes.append({"name": "PM-JAY — Renal Care Package", "description": "Covers kidney dialysis and renal transplants; free at all PM-JAY empanelled hospitals.", "eligibility": "SECC 2011 eligible families — verify at nha.gov.in", "website": "https://nha.gov.in/"})
+        schemes.append({"name": "PM-JAY — Renal Care Package", "description": "PM-JAY may cover eligible kidney dialysis and renal procedures at empanelled hospitals.", "eligibility": "Check eligibility on the PM-JAY beneficiary portal and confirm package availability with the hospital.", "website": PMJAY_ELIGIBILITY_URL})
     if any(k in illness_lower for k in ("maternal", "delivery", "pregnancy", "antenatal", "prenatal")):
         schemes.append({"name": "Pradhan Mantri Matru Vandana Yojana (PMMVY)", "description": "₹5,000 cash benefit for first live birth — covers ante-natal care and nutrition.", "eligibility": "Pregnant and lactating women for first live birth", "website": "https://pmmvy.wcd.gov.in/"})
 
@@ -2195,16 +2198,16 @@ def _rule_based_schemes(illness, user_profile=None):
     # ── Income-based eligibility note ─────────────────────────────────────────
     income_label = ""
     if income in ("below_1lakh", "1_2lakh"):
-        income_label = "Your income range makes you likely eligible for PM-JAY. Check at nha.gov.in."
+        income_label = "Your income range may make you eligible for PM-JAY or state schemes. Check the PM-JAY beneficiary portal."
     elif income in ("2_5lakh",):
         income_label = "You may qualify for state-specific schemes. Check with your district hospital."
 
     # ── PM-JAY always included ────────────────────────────────────────────────
     schemes.append({
         "name": "Ayushman Bharat PM-JAY",
-        "description": f"₹5 lakh cover per year for secondary and tertiary hospitalisation.{' ' + income_label if income_label else ''}",
-        "eligibility": "SECC 2011 families and state-nominated beneficiaries — verify eligibility online",
-        "website": "https://nha.gov.in/",
+        "description": f"₹5 lakh cover per year for eligible secondary and tertiary hospitalisation.{' ' + income_label if income_label else ''}",
+        "eligibility": f"SECC 2011 families and state-nominated beneficiaries — verify eligibility online. For empanelled hospitals, check {PMJAY_HOSPITAL_SEARCH_URL}",
+        "website": PMJAY_ELIGIBILITY_URL,
     })
     # Deduplicate by name
     seen_names: set = set()
@@ -2230,7 +2233,11 @@ def suggest_government_schemes(illness, flagged, report, user_profile=None):
         prompt = (
             "Based on the patient profile and medical context below, suggest up to 3 relevant "
             "Indian government health schemes the patient may be eligible for. "
-            "Include Ayushman Bharat PM-JAY if applicable. Use accurate, working government website URLs. "
+            "Include Ayushman Bharat PM-JAY if applicable. "
+            f"For PM-JAY eligibility use {PMJAY_ELIGIBILITY_URL}. "
+            f"For PM-JAY hospital search use {PMJAY_HOSPITAL_SEARCH_URL}. "
+            "Do not use pmjay.gov.in or nhm.gov.in if a more specific working portal is available. "
+            "Use accurate government website URLs only when you are confident. "
             "Return ONLY valid JSON:\n"
             '{"schemes": [{"name": "...", "description": "...", "eligibility": "...", "website": "https://..."}]}\n\n'
             f"State: {state or 'not specified'}\n"
