@@ -212,6 +212,8 @@ AYUSHMAN_HINTS = (
 PMJAY_ELIGIBILITY_URL = "https://beneficiary.nha.gov.in/"
 PMJAY_HOSPITAL_SEARCH_URL = "https://hospitals.pmjay.gov.in/Search/"
 MOHFW_URL = "https://www.mohfw.gov.in/"
+GOOGLE_MAPS_HOSPITAL_SEARCH_URL = "https://www.google.com/maps/search/hospitals/@{lat},{lon},14z"
+OSM_HOSPITAL_SEARCH_URL = "https://www.openstreetmap.org/search?query=hospital#map=14/{lat}/{lon}"
 
 
 def get_db_connection():
@@ -2086,8 +2088,69 @@ def _hospital_address(tags):
     return ", ".join(part for part in parts if part) or "Address not available"
 
 
+def _fallback_hospital_links(lat, lon, ayushman_only=False):
+    links = []
+    if ayushman_only:
+        links.append({
+            "name": "PM-JAY Empanelled Hospital Search",
+            "address": "Official PM-JAY hospital search portal. Select your state/district there to verify empanelment.",
+            "distance": 0,
+            "contact": "Not available",
+            "type": "Official Portal",
+            "lat": lat,
+            "lon": lon,
+            "ayushman": True,
+            "ayushman_note": "Official portal for PM-JAY hospital verification",
+            "map_url": PMJAY_HOSPITAL_SEARCH_URL,
+        })
+    links.extend([
+        {
+            "name": "Search nearby hospitals on Google Maps",
+            "address": "External map search using your current coordinates.",
+            "distance": 0,
+            "contact": "Not available",
+            "type": "External Search",
+            "lat": lat,
+            "lon": lon,
+            "ayushman": False,
+            "ayushman_note": "Ayushman status not verified",
+            "map_url": GOOGLE_MAPS_HOSPITAL_SEARCH_URL.format(lat=lat, lon=lon),
+        },
+        {
+            "name": "Search nearby hospitals on OpenStreetMap",
+            "address": "External OpenStreetMap search using your current coordinates.",
+            "distance": 0,
+            "contact": "Not available",
+            "type": "External Search",
+            "lat": lat,
+            "lon": lon,
+            "ayushman": False,
+            "ayushman_note": "Ayushman status not verified",
+            "map_url": OSM_HOSPITAL_SEARCH_URL.format(lat=lat, lon=lon),
+        },
+    ])
+    return links
+
+
+def _fetch_overpass_payload(query):
+    data = urlencode({"data": query}).encode()
+    last_error = None
+    for endpoint in (
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ):
+        req = Request(endpoint, data=data, headers={"User-Agent": "AyushScan/1.0"})
+        try:
+            with urlopen(req, timeout=20) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            last_error = exc
+            app.logger.warning("Overpass endpoint failed (%s): %s", endpoint, exc)
+    raise RuntimeError(f"All Overpass endpoints failed: {last_error}")
+
+
 def fetch_overpass_hospitals(lat, lon, radius=7000):
-    query = f"""
+    detailed_query = f"""
     [out:json][timeout:25];
     (
       node["amenity"="hospital"](around:{radius},{lat},{lon});
@@ -2096,29 +2159,30 @@ def fetch_overpass_hospitals(lat, lon, radius=7000):
       node["amenity"="clinic"](around:{radius},{lat},{lon});
       way["amenity"="clinic"](around:{radius},{lat},{lon});
       relation["amenity"="clinic"](around:{radius},{lat},{lon});
-      node["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
-      way["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
-      relation["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
+      node["amenity"="doctors"](around:{radius},{lat},{lon});
+      way["amenity"="doctors"](around:{radius},{lat},{lon});
+      relation["amenity"="doctors"](around:{radius},{lat},{lon});
+      node["healthcare"~"hospital|clinic|doctor|centre|center"](around:{radius},{lat},{lon});
+      way["healthcare"~"hospital|clinic|doctor|centre|center"](around:{radius},{lat},{lon});
+      relation["healthcare"~"hospital|clinic|doctor|centre|center"](around:{radius},{lat},{lon});
     );
     out center tags;
     """
-    data = urlencode({"data": query}).encode()
-    payload = None
-    last_error = None
-    for endpoint in (
-        "https://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter",
-    ):
-        req = Request(endpoint, data=data, headers={"User-Agent": "AyushScan/1.0"})
-        try:
-            with urlopen(req, timeout=30) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-            break
-        except Exception as exc:
-            last_error = exc
-            app.logger.warning("Overpass endpoint failed (%s): %s", endpoint, exc)
-    if payload is None:
-        raise RuntimeError(f"All Overpass endpoints failed: {last_error}")
+    simple_query = f"""
+    [out:json][timeout:15];
+    (
+      node["amenity"~"hospital|clinic|doctors"](around:{radius},{lat},{lon});
+      way["amenity"~"hospital|clinic|doctors"](around:{radius},{lat},{lon});
+      node["healthcare"](around:{radius},{lat},{lon});
+      way["healthcare"](around:{radius},{lat},{lon});
+    );
+    out center tags;
+    """
+    try:
+        payload = _fetch_overpass_payload(detailed_query)
+    except Exception as exc:
+        app.logger.warning("Detailed hospital lookup failed, trying simple lookup: %s", exc)
+        payload = _fetch_overpass_payload(simple_query)
     hospitals = {}
     for element in payload.get("elements", []):
         tags = element.get("tags", {})
@@ -2146,6 +2210,14 @@ def fetch_overpass_hospitals(lat, lon, radius=7000):
             "map_url": f"https://www.openstreetmap.org/?mlat={hlat}&mlon={hlon}#map=16/{hlat}/{hlon}",
         }
     return sorted(hospitals.values(), key=lambda h: h["distance"])[:30]
+
+
+def fetch_nearby_hospitals(lat, lon):
+    for radius in (1000, 3000, 7000, 15000):
+        hospitals = fetch_overpass_hospitals(lat, lon, radius=radius)
+        if hospitals:
+            return hospitals, radius
+    return [], 15000
 
 
 # State-specific scheme database
@@ -2507,15 +2579,38 @@ def hospitals_nearby():
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             return jsonify(success=False, message=_("Invalid location coordinates."), hospitals=[]), 400
         ayushman_only = request.args.get("ayushman") == "1"
-        hospitals = fetch_overpass_hospitals(lat, lon)
+        hospitals, radius_used = fetch_nearby_hospitals(lat, lon)
         if ayushman_only:
-            hospitals = [hospital for hospital in hospitals if hospital["ayushman"]]
-        return jsonify(success=True, hospitals=hospitals)
+            ayushman_hospitals = [hospital for hospital in hospitals if hospital["ayushman"]]
+            if ayushman_hospitals:
+                return jsonify(success=True, hospitals=ayushman_hospitals, source="overpass", radius_used_meters=radius_used)
+            if hospitals:
+                return jsonify(
+                    success=True,
+                    hospitals=hospitals,
+                    source="overpass",
+                    radius_used_meters=radius_used,
+                    message=_("No PM-JAY-tagged hospitals were found in OpenStreetMap near you, so all nearby hospitals are shown. Verify empanelment on the official PM-JAY portal."),
+                )
+        if not hospitals:
+            return jsonify(
+                success=True,
+                hospitals=_fallback_hospital_links(lat, lon, ayushman_only=False),
+                source="fallback",
+                radius_used_meters=radius_used,
+                message=_("No hospitals were found in OpenStreetMap near this location. Use these external search links instead."),
+            )
+        return jsonify(success=True, hospitals=hospitals, source="overpass", radius_used_meters=radius_used)
     except (TypeError, ValueError):
         return jsonify(success=False, message=_("Invalid location coordinates."), hospitals=[]), 400
     except Exception as exc:
         app.logger.warning("Hospital lookup failed: %s", exc)
-        return jsonify(success=False, message=_("Hospital search is temporarily unavailable."), hospitals=[]), 503
+        return jsonify(
+            success=True,
+            hospitals=_fallback_hospital_links(lat, lon, request.args.get("ayushman") == "1"),
+            source="fallback",
+            message=_("Live hospital lookup is temporarily unavailable. Use these external search links instead."),
+        )
 
 
 @app.route("/scan", methods=["POST"])
