@@ -220,6 +220,7 @@ def column_exists(conn, table, column):
 
 
 def init_db():
+    DATABASE.parent.mkdir(parents=True, exist_ok=True)
     with get_db_connection() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -2294,6 +2295,9 @@ def signup():
         return jsonify(success=True, redirect_url="/dashboard")
     except sqlite3.IntegrityError:
         return jsonify(success=False, message=_("Email or username already registered.")), 409
+    except sqlite3.Error as exc:
+        app.logger.exception("Signup database error")
+        return jsonify(success=False, message=_("Signup failed because the database is not ready: %(reason)s", reason=str(exc))), 500
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -2306,13 +2310,17 @@ def login():
     # Rate limit: 10 login attempts per email per minute
     if not check_rate_limit(f"login:{email}", max_requests=10, window_sec=60):
         return jsonify(success=False, message=_("Too many login attempts. Please wait 1 minute.")), 429
-    with get_db_connection() as conn:
-        user = conn.execute("SELECT id, password, preferred_language FROM users WHERE email = ?", (email,)).fetchone()
-        if user and is_password_valid(user["password"], password):
-            upgrade_password_if_plaintext(conn, user["id"], user["password"], password)
-            session["user_id"] = user["id"]
-            session["language"] = normalize_locale(user["preferred_language"] or session.get("language"))
-            return jsonify(success=True, redirect_url="/dashboard")
+    try:
+        with get_db_connection() as conn:
+            user = conn.execute("SELECT id, password, preferred_language FROM users WHERE email = ?", (email,)).fetchone()
+            if user and is_password_valid(user["password"], password):
+                upgrade_password_if_plaintext(conn, user["id"], user["password"], password)
+                session["user_id"] = user["id"]
+                session["language"] = normalize_locale(user["preferred_language"] or session.get("language"))
+                return jsonify(success=True, redirect_url="/dashboard")
+    except sqlite3.Error as exc:
+        app.logger.exception("Login database error")
+        return jsonify(success=False, message=_("Login failed because the database is not ready: %(reason)s", reason=str(exc))), 500
     return jsonify(success=False, message=_("Invalid credentials")), 401
 
 
@@ -2901,6 +2909,8 @@ def server_error(_error):
     return render_template("500.html"), 500
 
 
+init_db()
+
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=False)
