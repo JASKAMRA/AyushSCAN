@@ -75,7 +75,7 @@
 
 ### Authentication & Security
 - Signup/login with Werkzeug password hashing (pbkdf2/scrypt)
-- Forgot-password OTP flow: 15-minute expiry, Gmail SMTP delivery
+- Forgot-password OTP flow: 15-minute expiry, Brevo transactional email API delivery
 - **CSRF protection** (Flask-WTF) on every state-changing route — forms and JS `fetch` calls alike
 - **Rate limiting**: login (10 attempts/min per email), OTP requests (5/5 min per email), bill scans (15/min per user) — tracked in-process, so this holds as long as the app runs as a single process
 - **File upload validation**: extension allowlist (JPG/PNG/GIF/BMP/TIFF/WebP/PDF), 16 MB size limit, sanitized filenames; files that fail to decode as a real image/PDF are rejected
@@ -96,9 +96,11 @@ AyushSCAN/
 ├── app.py                  # Main Flask app — routes, OCR, AI analysis, auth, chatbot
 ├── products.csv            # Jan Aushadhi reference dataset (generic medicine prices)
 ├── requirements.txt
+├── Dockerfile              # Railway/container deployment with Tesseract installed
+├── DEPLOYMENT.md           # Fast Railway deployment checklist
 ├── .env                    # Environment variables (never commit this)
 ├── .env.example            # Documents every env var the app reads, with placeholders
-├── Procfile                # Render/Heroku-style start command (gunicorn)
+├── Procfile                # Alternate Procfile-style start command (gunicorn)
 ├── .python-version         # Pinned Python version for deployment
 ├── babel.cfg               # Flask-Babel string-extraction config
 ├── translations/           # Compiled English/Hindi UI translation catalogs
@@ -154,6 +156,28 @@ The app defaults to `C:\Program Files\Tesseract-OCR\tesseract.exe` on Windows. O
 
 ---
 
+## Deployment
+
+The recommended deployment is **Railway + Docker + Brevo + SQLite on a persistent volume**.
+
+Railway uses the included `Dockerfile`, which installs Tesseract and starts the Flask app with Gunicorn. Create a Railway volume mounted at:
+
+```text
+/data
+```
+
+Then set:
+
+```env
+DATABASE_PATH=/data/users.db
+```
+
+The local `users.db` file is intentionally not committed or deployed. The production database is created fresh at `/data/users.db` and survives redeploys as long as the Railway volume remains attached.
+
+See `DEPLOYMENT.md` for the exact step-by-step checklist.
+
+---
+
 ## Environment Variables (`.env`)
 
 Create a `.env` file at the project root (same folder as `app.py`).
@@ -167,15 +191,19 @@ GEMINI_MODEL=gemini-2.0-flash
 # Flask session-signing secret (generate with: python -c "import secrets; print(secrets.token_hex(32))")
 SECRET_KEY=your_random_secret_key
 
-# Email — OTP delivery and contact form
-EMAIL_ADDRESS=your_gmail@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password   # Use an App Password, not your account password
+# Email — OTP delivery and contact form through Brevo API
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=verified_sender@example.com
+BREVO_SENDER_NAME=AyushScan
+CONTACT_EMAIL=your_contact_receiver@example.com
+EMAIL_REPLY_TO=
+
+# SQLite database path. Use /data/users.db on Railway with a mounted /data volume.
+DATABASE_PATH=/data/users.db
 
 # Optional overrides (defaults shown)
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+TESSERACT_CMD=tesseract
 TESSERACT_LANG=eng
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
 PDF_OCR_MAX_PAGES=12
 PDF_OCR_SCALE=3.5
 ```
@@ -185,8 +213,8 @@ A filled-in template with comments for every variable is in `.env.example`.
 **Getting a Gemini API key**
 Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with a Google account, and click **Create API key**. Depending on when the key was issued it will start with either `AIza` (older "Standard" keys) or `AQ.` (current "Auth" keys) — the app accepts both. Paste it as the value of `GOOGLE_API_KEY`.
 
-**Getting a Gmail App Password**
-Enable 2-Step Verification on your Google account, then go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and generate an app password for "Mail". Use that 16-character password as `EMAIL_PASSWORD`.
+**Getting Brevo email credentials**
+Create a Brevo account, enable transactional email, create an API key, and add a verified sender email. Use that API key as `BREVO_API_KEY` and the verified sender as `BREVO_SENDER_EMAIL`.
 
 > **Note:** The app works without a Gemini API key — OCR, price lookup, and rule-based analysis still function. Gemini-powered features (structured extraction, chatbot, scheme suggestions) fall back to a rule-based engine.
 
@@ -206,7 +234,12 @@ Visit `/api/status` to check the health of the Gemini and email integrations:
   "gemini_model": "gemini-2.0-flash",
   "gemini_ping": "ok",
   "email_configured": true,
-  "tesseract_path": "default",
+  "email_provider": "brevo",
+  "database_path": "/data/users.db",
+  "tesseract_path": "tesseract",
+  "tesseract_python_package_installed": true,
+  "pdf_renderer_installed": true,
+  "easyocr_installed": false,
   "products_loaded": 2439
 }
 ```

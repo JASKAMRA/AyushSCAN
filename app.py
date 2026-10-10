@@ -5,16 +5,14 @@ import logging
 import os
 import random
 import re
-import smtplib
 import sqlite3
-import ssl
 import time
 import uuid
 
 from datetime import datetime, timedelta
-from email.message import EmailMessage
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -99,7 +97,7 @@ except ImportError:
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATABASE = BASE_DIR / "users.db"
+DATABASE = Path(os.getenv("DATABASE_PATH", BASE_DIR / "users.db"))
 CSV_FILE = BASE_DIR / "products.csv"
 UPLOAD_FOLDER = BASE_DIR / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
@@ -739,29 +737,72 @@ def upgrade_password_if_plaintext(conn, user_id, stored, candidate):
         conn.commit()
 
 
-def send_otp_email(email, otp, purpose="forgot_password"):
-    sender = os.getenv("EMAIL_ADDRESS")
-    password = os.getenv("EMAIL_PASSWORD")
-    if not sender or not password:
-        app.logger.warning("SMTP is not configured. OTP for %s is %s", email, otp)
-        return False, _("Email is not configured. OTP has been logged for local demo.")
+def _email_from_address():
+    sender_email = os.getenv("BREVO_SENDER_EMAIL")
+    sender_name = os.getenv("BREVO_SENDER_NAME", "AyushScan")
+    if not sender_email:
+        return ""
+    return f"{sender_name} <{sender_email}>"
 
-    msg = EmailMessage()
-    msg["Subject"] = _("Your AyushScan OTP")
-    msg["From"] = sender
-    msg["To"] = email
-    msg.set_content(_(
+
+def _email_provider_name():
+    if os.getenv("BREVO_API_KEY"):
+        return "brevo"
+    return "not_configured"
+
+
+def _send_email_http(to_email, subject, body):
+    brevo_key = os.getenv("BREVO_API_KEY")
+    reply_to = os.getenv("EMAIL_REPLY_TO")
+
+    if not brevo_key:
+        raise RuntimeError("BREVO_API_KEY is required")
+
+    sender_email = os.getenv("BREVO_SENDER_EMAIL")
+    sender_name = os.getenv("BREVO_SENDER_NAME", "AyushScan")
+    if not sender_email:
+        raise RuntimeError("BREVO_SENDER_EMAIL is required")
+
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "textContent": body,
+    }
+    if reply_to:
+        payload["replyTo"] = {"email": reply_to}
+    req = Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "api-key": brevo_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    with urlopen(req, timeout=20) as response:
+        if response.status >= 400:
+            raise RuntimeError(f"Email provider returned HTTP {response.status}")
+
+
+def send_email(to_email, subject, body):
+    provider = _email_provider_name()
+    if provider != "brevo":
+        raise RuntimeError("Email is not configured")
+    _send_email_http(to_email, subject, body)
+    return provider
+
+
+def send_otp_email(email, otp, purpose="forgot_password"):
+    body = _(
         "Your AyushScan OTP for %(purpose)s is %(otp)s. It is valid for this session.",
         purpose=purpose.replace('_', ' '), otp=otp,
-    ))
-
-    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    port = int(os.getenv("SMTP_PORT", "465"))
+    )
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(host, port, context=context, timeout=20) as smtp:
-            smtp.login(sender, password)
-            smtp.send_message(msg)
+        provider = send_email(email, _("Your AyushScan OTP"), body)
+        app.logger.info("OTP email sent via %s", provider)
         return True, _("OTP sent to your email.")
     except Exception as exc:
         app.logger.exception("OTP email failed")
@@ -830,6 +871,53 @@ def ocr_quality_score(text):
         re.findall(r"\b(?:tablet|tablets|tab|capsule|capsules|cap|mg|ml|syrup|injection)\b", clean_text.lower())
     )
     return alpha_num + (line_count * 10) + (medicine_hint_count * 20) + (receipt_rows * 60) + digit_count - (fragmented_rows * 20)
+
+
+def estimate_ocr_quality(text):
+    clean_text = clean_ocr_text(text)
+    lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
+    if not clean_text or not lines:
+        return {
+            "tier": "failed",
+            "score": 0,
+            "line_count": 0,
+            "likely_usable": False,
+            "note": "No readable text was extracted.",
+        }
+
+    score = ocr_quality_score(clean_text)
+    alpha_num = len(re.findall(r"[a-z0-9]", clean_text.lower()))
+    suspicious_chars = len(re.findall(r"[^a-zA-Z0-9\s.,:;()/+\-₹]", clean_text))
+    suspicious_ratio = round(suspicious_chars / max(len(clean_text), 1), 3)
+    medicine_hint_count = len(
+        re.findall(r"\b(?:tablet|tablets|tab|capsule|capsules|cap|mg|ml|syrup|injection|inj|strip)\b", clean_text.lower())
+    )
+    amount_rows = sum(
+        1 for line in lines
+        if re.search(r"(?:rs\.?|inr|₹)?\s*\d+(?:\.\d{1,2})?\s*$", line, re.I)
+    )
+
+    if score >= 260 and len(lines) >= 5 and suspicious_ratio < 0.08:
+        tier = "high"
+        note = "OCR looks usable for automated bill analysis, with normal manual review."
+    elif score >= 120 and len(lines) >= 3 and suspicious_ratio < 0.15:
+        tier = "medium"
+        note = "OCR is partially usable. Ask the user to confirm medicine names, quantities, and prices."
+    else:
+        tier = "low"
+        note = "OCR quality is weak. A clearer, flatter, well-lit image should improve results."
+
+    return {
+        "tier": tier,
+        "score": score,
+        "line_count": len(lines),
+        "alpha_numeric_chars": alpha_num,
+        "amount_like_rows": amount_rows,
+        "medicine_hint_count": medicine_hint_count,
+        "suspicious_char_ratio": suspicious_ratio,
+        "likely_usable": tier in {"high", "medium"},
+        "note": note,
+    }
 
 
 def preprocess_image_for_ocr(image, invert=False):
@@ -2111,7 +2199,8 @@ def suggest_government_schemes(illness, flagged, report, user_profile=None):
 def api_status():
     key = os.getenv("GOOGLE_API_KEY", "")
     key_ok = bool(key and (key.startswith("AIza") or key.startswith("AQ.")) and len(key) > 10)
-    email_ok = bool(os.getenv("EMAIL_ADDRESS") and os.getenv("EMAIL_PASSWORD"))
+    email_provider = _email_provider_name()
+    email_ok = email_provider != "not_configured"
     gemini_test = ""
     if genai and key_ok:
         try:
@@ -2133,7 +2222,12 @@ def api_status():
         "gemini_model": os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
         "gemini_ping": gemini_test,
         "email_configured": email_ok,
+        "email_provider": email_provider,
+        "database_path": str(DATABASE),
         "tesseract_path": os.getenv("TESSERACT_CMD", "default"),
+        "tesseract_python_package_installed": pytesseract is not None,
+        "pdf_renderer_installed": pdfium is not None,
+        "easyocr_installed": _easyocr_module is not None,
         "products_loaded": len(PRODUCTS),
     })
 
@@ -2154,21 +2248,17 @@ def contact():
     email = (request.form.get("email") or "").strip()[:200]
     message = (request.form.get("message") or "").strip()[:2000]
 
-    sender = os.getenv("EMAIL_ADDRESS")
-    password = os.getenv("EMAIL_PASSWORD")
-    if not sender or not password:
+    contact_to = os.getenv("CONTACT_EMAIL")
+    if not contact_to or _email_provider_name() == "not_configured":
         flash(_("Contact form is not configured. Please email us directly."), "danger")
         return redirect(url_for("about"))
 
     try:
-        msg = EmailMessage()
-        msg["Subject"] = f"AyushScan Contact - {name}"
-        msg["From"] = sender
-        msg["To"] = sender
-        msg.set_content(f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}")
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
-            smtp.login(sender, password)
-            smtp.send_message(msg)
+        send_email(
+            contact_to,
+            f"AyushScan Contact - {name}",
+            f"Name: {name}\nEmail: {email}\n\nMessage:\n{message}",
+        )
         app.logger.info("Contact form submitted from %s", email)
         flash(_("Message sent successfully!"), "success")
     except Exception as exc:
@@ -2379,7 +2469,9 @@ def scan():
             image = Image.open(file_path)
             text = ocr_image_to_text(image)
             scan_mode = "image"
+        ocr_quality = estimate_ocr_quality(text)
         _flagged, report = analyze_bill(text)
+        report.setdefault("summary", {})["ocr_quality"] = ocr_quality
         review_id = uuid.uuid4().hex
         _pending_scan_store[review_id] = {
             "user_id": session["user_id"],
@@ -2387,6 +2479,7 @@ def scan():
             "text": text,
             "report": report,
             "scan_mode": scan_mode,
+            "ocr_quality": ocr_quality,
             "created_at": time.time(),
         }
         return jsonify(
@@ -2397,6 +2490,7 @@ def scan():
             report=report,
             text=text,
             scan_mode=scan_mode,
+            ocr_quality=ocr_quality,
         )
     except UnidentifiedImageError:
         return jsonify(success=False, message=_("Invalid or corrupted image file.")), 400
