@@ -163,21 +163,33 @@ function renderHospitalSkeleton() {
 
 function renderHospitals(hospitals) {
   const hospitalList = document.getElementById("hospitalList");
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
   if (!hospitals.length) {
     hospitalList.innerHTML = `<p class="empty-state">${I18N.noHospitalsFound}</p>`;
     return;
   }
   hospitalList.innerHTML = hospitals
-    .map((hospital) => `
+    .map((hospital) => {
+      const distance = Number(hospital.distance || 0).toFixed(2);
+      return `
       <article style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;background:${hospital.ayushman ? "#ecfdf5" : "#fff"};">
-        <h3 style="margin-bottom:.5rem;">${hospital.name}</h3>
-        <p>${hospital.address}</p>
-        <p>${I18N.distanceLabel.replace("%(km)s", hospital.distance)}</p>
-        <p>${I18N.contactLabel.replace("%(contact)s", hospital.contact)}</p>
+        <h3 style="margin-bottom:.5rem;">${escapeHtml(hospital.name)}</h3>
+        <p>${escapeHtml(hospital.type || "Healthcare")}</p>
+        <p>${escapeHtml(hospital.address)}</p>
+        <p>${I18N.distanceLabel.replace("%(km)s", distance)}</p>
+        <p>${I18N.contactLabel.replace("%(contact)s", escapeHtml(hospital.contact))}</p>
         <p>${hospital.ayushman ? I18N.ayushmanPossible : I18N.ayushmanUnknown}</p>
-        <a href="${hospital.map_url}" target="_blank" rel="noopener">${I18N.openMap}</a>
+        <a href="${escapeHtml(hospital.map_url)}" target="_blank" rel="noopener">${I18N.openMap}</a>
       </article>
-    `)
+    `;
+    })
     .join("");
 }
 

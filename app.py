@@ -205,7 +205,10 @@ HINGLISH_HINTS = {
     "dawa", "dawai", "bimari", "aspataal", "hospital", "kitna", "hai", "kya",
     "bill", "mahanga", "sasta", "madad", "doctor", "ilaaj", "yojana"
 }
-AYUSHMAN_HINTS = ("ayushman", "pmjay", "janaushadhi", "government", "govt", "public", "trust")
+AYUSHMAN_HINTS = (
+    "ayushman", "pmjay", "pm-jay", "jan arogya", "janaushadhi", "government",
+    "govt", "public", "trust", "charitable", "nha"
+)
 
 
 def get_db_connection():
@@ -2061,21 +2064,59 @@ def haversine_km(lat1, lon1, lat2, lon2):
     return round(2 * radius * asin(sqrt(a)), 2)
 
 
-def fetch_overpass_hospitals(lat, lon, radius=5000):
+def _tag_text(tags):
+    return " ".join(str(value) for value in tags.values() if value).lower()
+
+
+def _hospital_address(tags):
+    full_address = tags.get("addr:full")
+    if full_address:
+        return full_address
+    parts = [
+        tags.get("addr:housenumber"),
+        tags.get("addr:street"),
+        tags.get("addr:suburb"),
+        tags.get("addr:city") or tags.get("addr:town") or tags.get("addr:village"),
+        tags.get("addr:state"),
+        tags.get("addr:postcode"),
+    ]
+    return ", ".join(part for part in parts if part) or "Address not available"
+
+
+def fetch_overpass_hospitals(lat, lon, radius=7000):
     query = f"""
     [out:json][timeout:25];
     (
       node["amenity"="hospital"](around:{radius},{lat},{lon});
       way["amenity"="hospital"](around:{radius},{lat},{lon});
       relation["amenity"="hospital"](around:{radius},{lat},{lon});
+      node["amenity"="clinic"](around:{radius},{lat},{lon});
+      way["amenity"="clinic"](around:{radius},{lat},{lon});
+      relation["amenity"="clinic"](around:{radius},{lat},{lon});
+      node["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
+      way["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
+      relation["healthcare"~"hospital|clinic|doctor"](around:{radius},{lat},{lon});
     );
     out center tags;
     """
     data = urlencode({"data": query}).encode()
-    req = Request("https://overpass-api.de/api/interpreter", data=data, headers={"User-Agent": "AyushScan/1.0"})
-    with urlopen(req, timeout=30) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    hospitals = []
+    payload = None
+    last_error = None
+    for endpoint in (
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ):
+        req = Request(endpoint, data=data, headers={"User-Agent": "AyushScan/1.0"})
+        try:
+            with urlopen(req, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            break
+        except Exception as exc:
+            last_error = exc
+            app.logger.warning("Overpass endpoint failed (%s): %s", endpoint, exc)
+    if payload is None:
+        raise RuntimeError(f"All Overpass endpoints failed: {last_error}")
+    hospitals = {}
     for element in payload.get("elements", []):
         tags = element.get("tags", {})
         hlat = element.get("lat") or element.get("center", {}).get("lat")
@@ -2083,19 +2124,25 @@ def fetch_overpass_hospitals(lat, lon, radius=5000):
         if not hlat or not hlon:
             continue
         name = tags.get("name") or "Unnamed Hospital"
-        address = ", ".join(filter(None, [tags.get("addr:street"), tags.get("addr:city"), tags.get("addr:postcode")])) or "Address not available"
-        hayushman = any(hint in " ".join(tags.values()).lower() for hint in AYUSHMAN_HINTS)
-        hospitals.append({
+        key = (name.lower(), round(float(hlat), 4), round(float(hlon), 4))
+        if key in hospitals:
+            continue
+        text = _tag_text(tags)
+        hayushman = any(hint in text for hint in AYUSHMAN_HINTS)
+        facility_type = tags.get("amenity") or tags.get("healthcare") or "healthcare"
+        hospitals[key] = {
             "name": name,
-            "address": address,
+            "address": _hospital_address(tags),
             "distance": haversine_km(float(lat), float(lon), float(hlat), float(hlon)),
             "contact": tags.get("phone") or tags.get("contact:phone") or "Not available",
+            "type": facility_type.title(),
             "lat": hlat,
             "lon": hlon,
             "ayushman": hayushman,
+            "ayushman_note": "Possible match from OpenStreetMap tags" if hayushman else "Not confirmed in OpenStreetMap tags",
             "map_url": f"https://www.openstreetmap.org/?mlat={hlat}&mlon={hlon}#map=16/{hlat}/{hlon}",
-        })
-    return sorted(hospitals, key=lambda h: h["distance"])[:20]
+        }
+    return sorted(hospitals.values(), key=lambda h: h["distance"])[:30]
 
 
 # State-specific scheme database
@@ -2450,11 +2497,15 @@ def hospitals_nearby():
     try:
         lat = float(request.args.get("lat"))
         lon = float(request.args.get("lon"))
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return jsonify(success=False, message=_("Invalid location coordinates."), hospitals=[]), 400
         ayushman_only = request.args.get("ayushman") == "1"
         hospitals = fetch_overpass_hospitals(lat, lon)
         if ayushman_only:
             hospitals = [hospital for hospital in hospitals if hospital["ayushman"]]
         return jsonify(success=True, hospitals=hospitals)
+    except (TypeError, ValueError):
+        return jsonify(success=False, message=_("Invalid location coordinates."), hospitals=[]), 400
     except Exception as exc:
         app.logger.warning("Hospital lookup failed: %s", exc)
         return jsonify(success=False, message=_("Hospital search is temporarily unavailable."), hospitals=[]), 503
