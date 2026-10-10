@@ -783,9 +783,16 @@ def _send_email_http(to_email, subject, body):
         method="POST",
     )
 
-    with urlopen(req, timeout=20) as response:
-        if response.status >= 400:
-            raise RuntimeError(f"Email provider returned HTTP {response.status}")
+    try:
+        with urlopen(req, timeout=20) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            if response.status >= 400:
+                raise RuntimeError(f"Brevo returned HTTP {response.status}: {body[:500]}")
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Brevo returned HTTP {exc.code}: {body[:500]}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"Could not reach Brevo API: {exc.reason}") from exc
 
 
 def send_email(to_email, subject, body):
@@ -2230,6 +2237,24 @@ def api_status():
         "pdf_renderer_installed": pdfium is not None,
         "easyocr_installed": _easyocr_module is not None,
         "products_loaded": len(PRODUCTS),
+    })
+
+
+@app.route("/api/email-status")
+def api_email_status():
+    brevo_key = os.getenv("BREVO_API_KEY", "")
+    sender_email = os.getenv("BREVO_SENDER_EMAIL", "")
+    contact_email = os.getenv("CONTACT_EMAIL", "")
+    return jsonify({
+        "email_provider": _email_provider_name(),
+        "brevo_api_key_set": bool(brevo_key),
+        "brevo_api_key_hint": f"{brevo_key[:4]}...{brevo_key[-4:]}" if len(brevo_key) >= 8 else "not set",
+        "brevo_sender_email_set": bool(sender_email),
+        "brevo_sender_email": sender_email,
+        "brevo_sender_name": os.getenv("BREVO_SENDER_NAME", "AyushScan"),
+        "contact_email_set": bool(contact_email),
+        "contact_email": contact_email,
+        "email_reply_to_set": bool(os.getenv("EMAIL_REPLY_TO")),
     })
 
 
